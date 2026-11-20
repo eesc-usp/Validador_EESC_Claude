@@ -1,0 +1,11 @@
+# Normaliza finais de linha no repositório (LF) e usa CRLF nos scripts do Windows,
+# que o PowerShell 5 e o cmd exigem.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.docx binary
+*.pdf binary
+*.ico binary
+*.png binary

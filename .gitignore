@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Dados locais do verificador (NUNCA versionar)
+verificador-interno/config.json
+verificador-interno/perfis/
+verificador-interno/publico.json
+verificador-interno/compartilhar/
+verificador-interno/ferramentas/
+*.log
+*.pid
+*.parar
+*.tmp
+
+# Trabalhos de alunos: só os exemplos e o template entram no repositório
+*.docx
+!verificador-interno/exemplos/*.docx
+!verificador-interno/assets/modelos/*.docx
+*.pdf
+!assistente-alunos/*.pdf
+~$*
+
+# Pacotes gerados
+dist/
+*.zip
+
+# Sistema/editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
