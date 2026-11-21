@@ -3,6 +3,17 @@
 Versões do **Verificador ABNT** (`verificador-interno/VERSION`). Para publicar uma versão nova, aumente o número
 em `VERSION`, descreva aqui e rode `scripts\enviar_para_github.bat -Versao`.
 
+## 1.12.0
+- Envio aceita **somente .docx**, com aviso claro e conferência de que o arquivo é mesmo um .docx do Word.
+- Identificação tolerante a trabalhos fora do modelo: títulos com pontuação, "CAPÍTULO 1 – ...", grafia
+  aproximada, títulos de seção sem estilo, legendas que são frases.
+- Novas verificações: título de seção com ponto/centralizado/espaço após o número/texto na mesma linha;
+  legendas "FIGURA"/"Fig."; imagem sem título; cor e realce no texto; mistura de fontes; alinhamento e recuo
+  desiguais; espaços duplos e antes da pontuação; parênteses e aspas sem par; notas de rodapé e número de
+  página em fonte menor; sigla por extenso na 1ª menção; sumário sem pré-textuais; "Índice" no lugar do
+  sumário; ano de referência no futuro.
+- Correção automática de espaços e de títulos de seção (sem alterar palavras).
+
 ## 1.11.0
 - Aba **Elementos do trabalho**: cada elemento conferido em *aparece · formatação · conteúdo*, procurado no arquivo
   inteiro (sem exigir a posição/página do modelo).
