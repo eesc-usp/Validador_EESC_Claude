@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Área de trabalho</title>
+<style>
+  :root {
+    --azul: #1F4E79; --azul-claro: #E8F0F8; --borda: #E3E7ED; --texto: #1F2937; --suave: #6B7280;
+    --aj-bg: #FDE2E4; --aj-tx: #9B1C2C; --ve-bg: #FFF1C2; --ve-tx: #7A5600; --ok-bg: #DDF3E4; --ok-tx: #1E6B3A;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: "Source Sans Pro", "Segoe UI", system-ui, sans-serif;
+               color: var(--texto); background: transparent; }
+  #app { display: grid; grid-template-columns: 370px 1fr; height: 100%; border: 1px solid var(--borda);
+         border-radius: 14px; overflow: hidden; background: #fff; }
+
+  /* ---------------- lista de problemas */
+  #lista { display: flex; flex-direction: column; border-right: 1px solid var(--borda); background: #FAFBFC;
+           min-height: 0; }
+  .topo { padding: 14px 14px 10px; border-bottom: 1px solid var(--borda); background: #fff; }
+  .topo h3 { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
+  #busca { width: 100%; padding: 7px 10px; border: 1px solid var(--borda); border-radius: 8px; font-size: 13px;
+           outline: none; }
+  #busca:focus { border-color: var(--azul); box-shadow: 0 0 0 3px var(--azul-claro); }
+  .filtros { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .filtro { border: 1px solid var(--borda); background: #fff; border-radius: 999px; padding: 3px 10px;
+            font-size: 12px; cursor: pointer; user-select: none; display: flex; gap: 5px; align-items: center; }
+  .filtro.ativo { border-color: var(--azul); background: var(--azul-claro); color: var(--azul); font-weight: 600; }
+  .bolinha { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .b-Ajustar { background: #D9475B; } .b-Verificar { background: #E0A800; } .b-OK { background: #2F9E5B; }
+  #itens { overflow-y: auto; padding: 8px 10px 16px; flex: 1; }
+  .cat { font-size: 11px; font-weight: 700; color: var(--suave); text-transform: uppercase; letter-spacing: .04em;
+         margin: 12px 4px 6px; display: flex; justify-content: space-between; }
+  .card { background: #fff; border: 1px solid var(--borda); border-radius: 10px; padding: 9px 11px; margin-bottom: 7px;
+          cursor: pointer; transition: border-color .15s, box-shadow .15s; border-left: 4px solid transparent; }
+  .card:hover { border-color: #C9D3DF; box-shadow: 0 2px 6px rgba(15, 23, 42, .06); }
+  .card.st-Ajustar { border-left-color: #D9475B; } .card.st-Verificar { border-left-color: #E0A800; }
+  .card.st-OK { border-left-color: #2F9E5B; }
+  .card.sel { border-color: var(--azul); box-shadow: 0 0 0 3px var(--azul-claro); }
+  .card .linha1 { display: flex; gap: 8px; align-items: flex-start; }
+  .card .titulo { font-size: 13.5px; font-weight: 600; line-height: 1.3; flex: 1; }
+  .card .det { font-size: 12.5px; color: var(--suave); margin-top: 3px; }
+  .card .trecho { font-size: 12px; color: #374151; margin-top: 4px; font-style: italic; overflow: hidden;
+                  text-overflow: ellipsis; white-space: nowrap; }
+  .pill { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .p-Ajustar { background: var(--aj-bg); color: var(--aj-tx); } .p-Verificar { background: var(--ve-bg); color: var(--ve-tx); }
+  .p-OK { background: var(--ok-bg); color: var(--ok-tx); }
+  .card .mais { display: none; margin-top: 8px; }
+  .card.sel .mais { display: block; }
+  .corrigir { background: #F3F6FA; border-left: 3px solid var(--azul); padding: 6px 9px; border-radius: 6px;
+              font-size: 12.5px; margin-top: 6px; line-height: 1.4; }
+  .ia { background: #F5F3FF; border-left-color: #6D28D9; }
+  .nav { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: var(--suave); }
+  .nav button { border: 1px solid var(--borda); background: #fff; border-radius: 6px; width: 26px; height: 24px;
+                cursor: pointer; font-size: 13px; }
+  .nav button:hover { border-color: var(--azul); color: var(--azul); }
+  .ref { font-size: 11px; color: var(--suave); }
+  .mini { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 11.5px; }
+  .mini th, .mini td { border-bottom: 1px solid var(--borda); padding: 3px 4px; text-align: left; }
+  .mini th { color: var(--suave); font-weight: 600; }
+  .vazio { color: var(--suave); font-size: 13px; padding: 20px 8px; text-align: center; }
+
+  /* ---------------- documento */
+  #doc { display: flex; flex-direction: column; min-height: 0; background: #E9EDF2; }
+  .barra { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #fff;
+           border-bottom: 1px solid var(--borda); font-size: 12.5px; flex-wrap: wrap; }
+  .barra .grupo { display: flex; align-items: center; gap: 4px; }
+  .barra button { border: 1px solid var(--borda); background: #fff; border-radius: 6px; padding: 3px 9px;
+                  cursor: pointer; font-size: 12.5px; }
+  .barra button:hover { border-color: var(--azul); color: var(--azul); }
+  .barra button.ativo { background: var(--azul-claro); border-color: var(--azul); color: var(--azul); }
+  .legenda { margin-left: auto; color: var(--suave); display: flex; gap: 10px; align-items: center; }
+  .legenda ins, .legenda del { font-size: 12px; }
+  #rolagem { overflow: auto; flex: 1; padding: 22px 0 60px; }
+  #folhas { margin: 0 auto; width: max-content; }
+  .folha { background: #fff; margin: 0 auto 22px; box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 6px 18px rgba(0,0,0,.06);
+           position: relative; font-family: Arial, "Liberation Sans", sans-serif; font-size: 12pt; color: #111; }
+  .rotulo-sec { position: absolute; top: -17px; left: 0; font: 11px "Segoe UI", sans-serif; color: #94A3B8; }
+  .mostrar-margens .area { outline: 1.5px dashed #60A5FA; outline-offset: 0; }
+  .mostrar-margens .folha { box-shadow: inset 0 0 0 9999px rgba(96,165,250,.06), 0 1px 3px rgba(0,0,0,.12); }
+  .mostrar-margens .area { background: #fff; }
+  .par { margin: 0; white-space: pre-wrap; word-wrap: break-word; border-radius: 3px; position: relative;
+         transition: background .3s; }
+  .par:hover { background: #F6F8FB; cursor: text; }
+  .tit { font-weight: normal; }
+  .tab { display: inline-block; width: 1.25cm; }
+  .quebra-pag { display: block; text-align: center; font: 10px "Segoe UI", sans-serif; color: #94A3B8;
+                border-top: 1px dashed #CBD5E1; margin: 6px 0; }
+  ins { color: #0F7B3F; text-decoration: underline; text-decoration-color: #34A853; background: #E9F7EE; }
+  del { color: #B42318; text-decoration: line-through; background: #FDECEC; }
+  .img-ph { display: inline-block; background: #F1F5F9; color: #64748B; border: 1px dashed #CBD5E1;
+            padding: 18px 8px; text-align: center; font: 11px sans-serif; }
+  .tab-wrap { margin: 8px 0 4px; }
+  .tab-selo { display: inline-block; font: 600 10.5px "Segoe UI", sans-serif; padding: 2px 8px; border-radius: 6px;
+              margin-bottom: 4px; letter-spacing: .01em; }
+  .selo-tab { background: #E8F0F8; color: #1F4E79; } .selo-qua { background: #F3E8FF; color: #6B21A8; }
+  .selo-lay { background: #F1F5F9; color: #64748B; } .selo-sem { background: #FDE2E4; color: #9B1C2C; }
+  .tbl { border-collapse: collapse; margin: 0 auto; font-size: 11pt; min-width: 60%; max-width: 100%; }
+  .tbl td { padding: 2px 7px; vertical-align: top; }
+  .tbl .cel { margin: 0 !important; line-height: 1.3 !important; text-indent: 0 !important; }
+  .tbl .cel .lapis { display: none; }
+  .tbl tr.cab td { font-weight: 700; }
+  .tbl.vert td { border: 1px solid #333; }
+  .tbl.horiz tr:first-child td { border-top: 1px solid #333; border-bottom: 1px solid #333; }
+  .tbl.horiz tr:last-child td { border-bottom: 1px solid #333; }
+  .tbl.lay td { border: 1px dotted #CBD5E1; }
+  .tbl td:hover { background: #F6F8FB; }
+
+  /* destaque do problema */
+  .hl { background: #FFF6D6 !important; box-shadow: -10px 0 0 #FFF6D6, 10px 0 0 #FFF6D6, -14px 0 0 #F59E0B; }
+  .hl-forte { font-weight: 700; }
+  mark.alvo { background: #FDE68A; color: inherit; font-weight: 700; padding: 0 1px; border-radius: 2px;
+              box-shadow: 0 0 0 2px #F59E0B; }
+  .tbl.hl { outline: 3px solid #F59E0B; outline-offset: 3px; }
+  .editado { animation: verde 2.4s ease-out; }
+  @keyframes verde { 0% { background: #C9F2D8; } 100% { background: transparent; } }
+
+  /* editor */
+  .editor { border: 2px solid var(--azul); border-radius: 8px; padding: 8px; margin: 4px -8px; background: #fff;
+            font-family: "Segoe UI", sans-serif; }
+  .editor textarea { width: 100%; border: none; outline: none; resize: vertical; font: 12pt Arial, sans-serif;
+                     line-height: 1.5; min-height: 70px; color: #111; }
+  .editor .acoes { display: flex; gap: 8px; align-items: center; margin-top: 6px; font-size: 12px; color: var(--suave); }
+  .editor button { border-radius: 6px; padding: 5px 12px; font-size: 13px; cursor: pointer; border: 1px solid var(--borda);
+                   background: #fff; }
+  .editor button.salvar { background: var(--azul); color: #fff; border-color: var(--azul); font-weight: 600; }
+  .editor .dica { margin-left: auto; }
+  .lapis { position: absolute; right: -30px; top: 0; font-size: 14px; opacity: 0; cursor: pointer;
+           font-family: "Segoe UI Emoji", sans-serif; }
+  .par:hover .lapis { opacity: .55; }
+  .lapis:hover { opacity: 1 !important; }
+  .salvando { opacity: .55; pointer-events: none; }
+  #aviso { position: fixed; bottom: 16px; right: 22px; background: #111827; color: #fff; padding: 8px 14px;
+           border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; }
+  #aviso.vis { opacity: .92; }
+
+  /* ---------------- modo escuro (as folhas continuam brancas, como papel) */
+  body.escuro { --azul: #6AA6DD; --azul-claro: #1C3550; --borda: #2B3747; --texto: #E5E9F0; --suave: #9AA6B5;
+                --aj-bg: #4A1D24; --aj-tx: #F7A8B2; --ve-bg: #3D3110; --ve-tx: #F4D47C; --ok-bg: #173B26; --ok-tx: #8FD8A8; }
+  body.escuro #app { background: #17212C; }
+  body.escuro #lista { background: #131C26; }
+  body.escuro .topo, body.escuro .barra { background: #17212C; }
+  body.escuro .filtro, body.escuro .nav button, body.escuro .barra button { background: #1A2430; color: var(--texto); }
+  body.escuro .card { background: #1A2430; }
+  body.escuro .card:hover { border-color: #3B4A5E; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+  body.escuro .card .trecho { color: #B8C2CF; }
+  body.escuro .corrigir { background: #1E2A38; }
+  body.escuro .ia { background: #251F3A; }
+  body.escuro #doc { background: #0B1219; }
+  body.escuro input, body.escuro select { background: #1A2430; color: var(--texto); border-color: var(--borda); }
+  body.escuro .rotulo-sec { color: #7C8899; }
+  body.escuro #aviso { background: #E5E9F0; color: #111827; }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="lista">
+    <div class="topo">
+      <h3>Pontos a revisar</h3>
+      <input id="busca" placeholder="Buscar problema ou trecho…">
+      <div class="filtros" id="filtros"></div>
+    </div>
+    <div id="itens"></div>
+  </aside>
+  <main id="doc">
+    <div class="barra">
+      <div class="grupo"><button id="zmenos" title="Diminuir">−</button><span id="zval">100%</span>
+        <button id="zmais" title="Aumentar">+</button><button id="zajuste" title="Ajustar à largura">Ajustar</button></div>
+      <button id="bmargens" title="Mostrar a área de texto de cada folha">Mostrar margens</button>
+      <div class="legenda"><span>Duplo clique num parágrafo ou célula para editar</span>
+        <ins>inserido</ins><del>apagado</del></div>
+    </div>
+    <div id="rolagem"><div id="folhas"></div></div>
+  </main>
+</div>
+<div id="aviso"></div>
+
+<script>
+// ------------------------------------------------------------ protocolo do Streamlit (componente v1)
+function enviar(tipo, dados) {
+  window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: tipo }, dados || {}), "*");
+}
+function devolver(valor) { enviar("streamlit:setComponentValue", { value: valor, dataType: "json" }); }
+
+const ROT = { "Ajustar": "Ajustar", "Verificar": "Conferir", "OK": "OK" };
+const ORDEM = { "Ajustar": 0, "Verificar": 1, "OK": 2 };
+let estado = { achados: [], versao: null, filtros: new Set(["Ajustar", "Verificar"]), sel: null, idx: 0,
+               zoom: null, busca: "" };
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+
+function aviso(txt) {
+  const a = $("#aviso"); a.textContent = txt; a.classList.add("vis");
+  clearTimeout(aviso.t); aviso.t = setTimeout(() => a.classList.remove("vis"), 2600);
+}
+
+// ------------------------------------------------------------ lista
+function desenharFiltros() {
+  const n = { Ajustar: 0, Verificar: 0, OK: 0 };
+  estado.achados.forEach(a => n[a.status] = (n[a.status] || 0) + 1);
+  $("#filtros").innerHTML = ["Ajustar", "Verificar", "OK"].map(s =>
+    `<span class="filtro ${estado.filtros.has(s) ? "ativo" : ""}" data-s="${s}">
+       <span class="bolinha b-${s}"></span>${ROT[s]} <b>${n[s] || 0}</b></span>`).join("");
+  document.querySelectorAll(".filtro").forEach(el => el.onclick = () => {
+    const s = el.dataset.s;
+    estado.filtros.has(s) ? estado.filtros.delete(s) : estado.filtros.add(s);
+    desenharFiltros(); desenharLista();
+  });
+}
+
+function cartao(a) {
+  const nloc = a.locais.length;
+  const nav = nloc ? `<div class="nav">📍 <span class="pos">${estado.sel === a.id ? estado.idx + 1 : 1}</span> de ${nloc}
+      ${nloc > 1 ? `<button data-dir="-1" title="Anterior">‹</button><button data-dir="1" title="Próxima">›</button>` : ""}
+      ${a.secao ? `<span class="ref" style="margin-left:auto">Diretrizes §${esc(a.secao)}</span>` : ""}</div>`
+    : `<div class="nav">${a.documento_todo ? "📄 Vale para o documento todo" : "Sem trecho específico no texto"}
+      ${a.secao ? `<span class="ref" style="margin-left:auto">Diretrizes §${esc(a.secao)}</span>` : ""}</div>`;
+  let tabela = "";
+  if (a.tabela && a.tabela.length) {
+    const cols = Object.keys(a.tabela[0]);
+    tabela = `<table class="mini"><tr>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr>${
+      a.tabela.map(l => `<tr>${cols.map(c => `<td>${esc(l[c])}</td>`).join("")}</tr>`).join("")}</table>`;
+  }
+  const corr = a.corrigir ? `<div class="corrigir ${a.origem === "ia" ? "ia" : ""}"><b>${a.origem === "ia" ?
+      "Sugestão da IA (conferir):" : "Como corrigir:"}</b> ${a.origem === "ia" ? md(a.corrigir) : esc(a.corrigir)}</div>` : "";
+  const titulo = a.origem === "ia" ? (a.trechos[0] || a.item) : a.item;
+  return `<div class="card st-${a.status} ${estado.sel === a.id ? "sel" : ""}" data-id="${a.id}">
+    <div class="linha1"><span class="titulo">${esc(titulo)}</span><span class="pill p-${a.status}">${ROT[a.status]}</span></div>
+    <div class="det">${esc(a.detalhe)}</div>
+    ${a.origem !== "ia" && a.trechos.length ? `<div class="trecho" title="${esc(a.trechos.join("\n"))}">“${esc(a.trechos[0])}”${
+      a.trechos.length > 1 ? ` <span style="font-style:normal;color:var(--suave)">+${a.trechos.length - 1}</span>` : ""}</div>` : ""}
+    <div class="mais">${corr}${tabela}${nav}</div></div>`;
+}
+
+function desenharLista() {
+  const q = estado.busca.toLowerCase();
+  const vis = estado.achados.filter(a => estado.filtros.has(a.status) &&
+      (!q || (a.item + " " + a.detalhe + " " + a.trechos.join(" ")).toLowerCase().includes(q)));
+  if (!vis.length) {
+    $("#itens").innerHTML = `<div class="vazio">${estado.achados.length ? "Nada com esses filtros." : "Nenhum ponto encontrado."}</div>`;
+    return;
+  }
+  const cats = [...new Set(vis.map(a => a.categoria))];
+  $("#itens").innerHTML = cats.map(c => {
+    const itens = vis.filter(a => a.categoria === c).sort((x, y) => ORDEM[x.status] - ORDEM[y.status]);
+    return `<div class="cat"><span>${esc(c)}</span><span>${itens.length}</span></div>${itens.map(cartao).join("")}`;
+  }).join("");
+  document.querySelectorAll(".card").forEach(el => {
+    el.onclick = (ev) => {
+      const id = +el.dataset.id;
+      const btn = ev.target.closest("button[data-dir]");
+      if (btn) { ev.stopPropagation(); mover(id, +btn.dataset.dir); return; }
+      if (estado.sel === id && !ev.target.closest(".titulo,.det,.linha1")) return;
+      selecionar(id, 0);
+    };
+  });
+}
+
+function selecionar(id, idx) {
+  estado.sel = id; estado.idx = idx;
+  document.querySelectorAll(".card").forEach(c => c.classList.toggle("sel", +c.dataset.id === id));
+  const a = estado.achados.find(x => x.id === id);
+  irPara(a, idx);
+}
+
+function mover(id, dir) {
+  const a = estado.achados.find(x => x.id === id);
+  if (!a || !a.locais.length) return;
+  estado.sel = id;
+  estado.idx = (estado.idx + dir + a.locais.length) % a.locais.length;
+  const card = document.querySelector(`.card[data-id="${id}"] .pos`);
+  if (card) card.textContent = estado.idx + 1;
+  irPara(a, estado.idx);
+}
+
+// ------------------------------------------------------------ destaque no documento
+function limparDestaques() {
+  document.querySelectorAll("[data-orig-html]").forEach(el => {
+    el.innerHTML = el.dataset.origHtml; delete el.dataset.origHtml; ligarLapis(el);
+  });
+  document.querySelectorAll(".hl,.hl-forte").forEach(el => el.classList.remove("hl", "hl-forte"));
+  $("#folhas").classList.remove("mostrar-margens");
+  $("#bmargens").classList.remove("ativo");
+}
+
+function marcarTexto(el, alvo) {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+    acceptNode: n => n.parentElement.closest("del,.lapis") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  const nos = []; let total = "";
+  while (walker.nextNode()) { nos.push([walker.currentNode, total.length]); total += walker.currentNode.nodeValue; }
+  const pos = total.indexOf(alvo);
+  if (pos < 0) return false;
+  const fim = pos + alvo.length;
+  const achar = (p) => { for (let k = nos.length - 1; k >= 0; k--) if (nos[k][1] <= p) return nos[k]; return nos[0]; };
+  const [n1, o1] = achar(pos), [n2, o2] = achar(fim - 1);
+  const r = document.createRange();
+  r.setStart(n1, pos - o1); r.setEnd(n2, fim - o2);
+  const m = document.createElement("mark"); m.className = "alvo";
+  m.appendChild(r.extractContents()); r.insertNode(m);
+  return m;
+}
+
+function irPara(a, idx) {
+  limparDestaques();
+  if (!a) return;
+  if (!a.locais.length) {
+    if (a.documento_todo) { $("#folhas").classList.add("mostrar-margens"); $("#bmargens").classList.add("ativo"); }
+    $("#rolagem").scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+  const loc = a.locais[idx];
+  const el = document.querySelector(`#folhas [data-b="${loc.b}"]`);
+  if (!el) { aviso("Trecho não encontrado na visualização."); return; }
+  el.classList.add("hl");
+  let alvo = el;
+  if (loc.m && el.tagName === "P") {
+    el.dataset.origHtml = el.innerHTML;
+    const m = marcarTexto(el, loc.m);
+    if (m) alvo = m; else { el.innerHTML = el.dataset.origHtml; delete el.dataset.origHtml; el.classList.add("hl-forte"); ligarLapis(el); }
+  } else if (el.tagName === "P") {
+    el.classList.add("hl-forte");
+  }
+  alvo.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+// ------------------------------------------------------------ edição
+function ligarLapis(p) {
+  if (p.tagName !== "P" || p.querySelector(".lapis")) return;
+  const l = document.createElement("span"); l.className = "lapis"; l.textContent = "✏️"; l.title = "Editar parágrafo";
+  l.onclick = (ev) => { ev.stopPropagation(); abrirEditor(p); };
+  p.appendChild(l);
+}
+
+function abrirEditor(p) {
+  if (document.querySelector(".editor")) return;
+  limparDestaques();
+  const original = p.dataset.t ?? "";
+  const ed = document.createElement("div"); ed.className = "editor";
+  ed.innerHTML = `<textarea></textarea><div class="acoes"><button class="salvar">Salvar</button>
+    <button class="cancelar">Cancelar</button><span class="dica">Ctrl+Enter salva · Esc cancela</span></div>`;
+  const ta = ed.querySelector("textarea"); ta.value = original;
+  p.style.display = "none"; p.after(ed);
+  const ajusta = () => { ta.style.height = "auto"; ta.style.height = (ta.scrollHeight + 4) + "px"; };
+  ta.oninput = ajusta; ajusta(); ta.focus();
+  const fechar = () => { ed.remove(); p.style.display = ""; };
+  const salvar = () => {
+    if (ta.value === original) { fechar(); return; }
+    ed.classList.add("salvando"); ed.querySelector(".dica").textContent = "Salvando no documento…";
+    devolver({ acao: "editar", bloco: p.dataset.b, original: original, texto: ta.value, nonce: Date.now() + Math.random() });
+  };
+  ed.querySelector(".salvar").onclick = salvar;
+  ed.querySelector(".cancelar").onclick = fechar;
+  ta.onkeydown = (ev) => {
+    if (ev.key === "Escape") fechar();
+    if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); salvar(); }
+  };
+}
+
+// ------------------------------------------------------------ zoom
+const LARGURA_FOLHA = 21 * 37.795 + 40;
+function aplicarZoom() {
+  $("#folhas").style.zoom = estado.zoom;
+  $("#zval").textContent = Math.round(estado.zoom * 100) + "%";
+}
+function zoomAjuste() {
+  const w = $("#rolagem").clientWidth - 40;
+  estado.zoom = Math.max(0.45, Math.min(1.25, w / LARGURA_FOLHA));
+  aplicarZoom();
+}
+$("#zmenos").onclick = () => { estado.zoom = Math.max(0.4, (estado.zoom || 1) - 0.1); aplicarZoom(); };
+$("#zmais").onclick = () => { estado.zoom = Math.min(2, (estado.zoom || 1) + 0.1); aplicarZoom(); };
+$("#zajuste").onclick = zoomAjuste;
+$("#bmargens").onclick = () => {
+  const on = !$("#folhas").classList.contains("mostrar-margens");
+  $("#folhas").classList.toggle("mostrar-margens", on); $("#bmargens").classList.toggle("ativo", on);
+};
+$("#busca").oninput = (ev) => { estado.busca = ev.target.value; desenharLista(); };
+$("#folhas").addEventListener("dblclick", (ev) => {
+  const p = ev.target.closest("p.par");
+  if (p && !ev.target.closest(".editor")) abrirEditor(p);
+});
+
+// ------------------------------------------------------------ render
+function render(args, tema) {
+  const escuro = args.escuro !== undefined ? !!args.escuro : !!(tema && tema.base === "dark");
+  document.body.classList.toggle("escuro", escuro);
+  document.body.style.height = args.altura + "px";
+  enviar("streamlit:setFrameHeight", { height: args.altura });
+  estado.achados = args.achados || [];
+  if (args.versao !== estado.versao) {
+    const rol = $("#rolagem"), topo = rol.scrollTop;
+    $("#folhas").innerHTML = args.html || "";
+    document.querySelectorAll("#folhas p.par").forEach(ligarLapis);
+    const primeira = estado.versao === null;
+    estado.versao = args.versao;
+    if (primeira || estado.zoom === null) zoomAjuste(); else { aplicarZoom(); rol.scrollTop = topo; }
+    if (args.foco !== null && args.foco !== undefined) {
+      const el = document.querySelector(`#folhas [data-b="${args.foco}"]`);
+      if (el) { el.classList.add("editado"); el.scrollIntoView({ block: "center" }); }
+    }
+    if (args.mensagem) aviso(args.mensagem);
+    if (estado.sel !== null && !estado.achados.find(a => a.id === estado.sel)) estado.sel = null;
+  } else if (args.mensagem && args.mensagem !== render.ultimaMsg) {
+    aviso(args.mensagem);
+    document.querySelectorAll(".editor").forEach(e => e.remove());
+    document.querySelectorAll("#folhas p.par").forEach(p => p.style.display = "");
+  }
+  render.ultimaMsg = args.mensagem;
+  desenharFiltros(); desenharLista();
+}
+
+window.addEventListener("message", (ev) => {
+  if (ev.data && ev.data.type === "streamlit:render") render(ev.data.args, ev.data.theme);
+});
+enviar("streamlit:componentReady", { apiVersion: 1 });
+</script>
+</body>
+</html>
