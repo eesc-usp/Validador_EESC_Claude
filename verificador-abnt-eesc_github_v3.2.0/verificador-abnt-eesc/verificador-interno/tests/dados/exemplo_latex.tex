@@ -1,0 +1,60 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{mathptmx}
+\usepackage[left=3cm,right=2cm,top=3cm,bottom=2cm]{geometry}
+\usepackage{setspace}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\titleformat{\chapter}{\normalfont\bfseries\large}{\thechapter}{1em}{\MakeUppercase}
+\titlespacing*{\chapter}{0pt}{0pt}{1.5em}
+\titleformat{\section}{\normalfont\bfseries}{\thesection}{1em}{}
+\pagestyle{fancy}\fancyhf{}\fancyhead[R]{\small\thepage}\renewcommand{\headrulewidth}{0pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyhead[R]{\small\thepage}\renewcommand{\headrulewidth}{0pt}}
+\setlength{\parindent}{1.25cm}
+\onehalfspacing
+\begin{document}
+\begin{titlepage}\centering
+{\large UNIVERSIDADE DE SÃO PAULO\\ ESCOLA DE ENGENHARIA DE SÃO CARLOS\par}\vspace{4cm}
+{\large JOÃO DA SILVA\par}\vspace{3cm}
+{\large\bfseries Análise de desempenho de pavimentos flexíveis\par}\vfill
+{\large São Carlos\\ 2026\par}
+\end{titlepage}
+\setcounter{page}{2}
+\thispagestyle{empty}
+\begin{center}\textbf{RESUMO}\end{center}
+SILVA, J. Análise de desempenho de pavimentos flexíveis. 2026. Monografia (Trabalho de Conclusão de Curso) -- Escola de Engenharia de São Carlos, Universidade de São Paulo, São Carlos, 2026.
+
+Este trabalho avalia o desempenho de pavimentos flexíveis em rodovias do interior paulista, considerando o tráfego, o clima e as propriedades dos materiais empregados nas camadas. Foram analisados dados de deflexão e de irregularidade longitudinal coletados ao longo de cinco anos em trechos experimentais, comparando-os com as previsões dos modelos empíricos e mecanístico-empíricos disponíveis na literatura técnica nacional e internacional. Os resultados indicam que os modelos mecanístico-empíricos representam melhor a evolução do trincamento por fadiga, enquanto os empíricos subestimam a deformação permanente nas trilhas de roda em segmentos com tráfego pesado. Conclui-se que a calibração local dos modelos é indispensável para o dimensionamento econômico e seguro das estruturas, e propõe-se um procedimento simplificado de calibração com base nos dados de monitoramento disponíveis nos órgãos rodoviários estaduais e municipais de toda a região estudada neste trabalho de conclusão de curso de engenharia civil.
+
+\noindent Palavras-chave: Pavimentação. Desempenho. Modelos de previsão.
+\clearpage
+\thispagestyle{empty}
+\begin{center}\textbf{SUMÁRIO}\end{center}
+\noindent 1 INTRODUÇÃO\dotfill 4\\
+1.1 Objetivos\dotfill 4\\
+REFERÊNCIAS\dotfill 6
+\clearpage
+\chapter{Introdução}
+A avaliação de pavimentos é tema recorrente na engenharia rodoviária (Medina; Motta, 2015). Segundo Balbo (2007), a deterioração das estruturas depende fundamentalmente da interação entre o tráfego e o clima, o que exige monitoramento contínuo e modelos calibrados para as condições locais de cada região do país.\footnote{As rodovias estudadas pertencem à malha estadual paulista.}
+
+Os modelos de previsão de desempenho permitem estimar a vida útil remanescente e planejar as intervenções de manutenção e reabilitação de forma racional e econômica, conforme discutido por diversos autores da área de infraestrutura de transportes.
+\section{Objetivos}
+O objetivo geral é comparar modelos de previsão com dados de campo. Os resultados estão na Tabela 1.
+\begin{table}[h]\centering\small
+Tabela 1 -- Deflexões médias por trecho\par\medskip
+\begin{tabular}{lrrr}\toprule Trecho & 2020 & 2022 & 2024\\\midrule A & 45 & 52 & 61\\ B & 38 & 41 & 47\\ C & 50 & 58 & 66\\\bottomrule\end{tabular}
+
+{\footnotesize Fonte: elaborada pelo autor.}
+\end{table}
+
+Conforme mostra a Tabela 1, as deflexões aumentam com o tempo em todos os trechos analisados nesta pesquisa experimental.
+\clearpage
+\begin{center}\textbf{REFERÊNCIAS}\end{center}
+\begin{singlespace}\noindent
+BALBO, J. T. \textbf{Pavimentação asfáltica}: materiais, projeto e restauração. São Paulo: Oficina de Textos, 2007.\par\vspace{12pt}\noindent
+MEDINA, J.; MOTTA, L. M. G. \textbf{Mecânica dos pavimentos}. 3. ed. Rio de Janeiro: Interciência, 2015.\par
+\end{singlespace}
+\end{document}
