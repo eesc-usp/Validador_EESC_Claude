@@ -18,11 +18,11 @@ from collections import Counter
 
 from docx.enum.dml import MSO_THEME_COLOR
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
 from lxml import etree
 
 from . import docx_util as du
 from . import perfil as PF
+from .cache import qn
 from .documento import chave
 from .estrutura import CAT_FORM, CAT_ILU, CAT_SEC, RE_SECAO, RE_SUMARIO, _amostra
 from .modelo import AJUSTAR, OK, VERIFICAR, Achado
@@ -44,7 +44,7 @@ def _corpo(d):
     out = []
     for b in d.paragrafos("textual"):
         t = b.texto
-        if len(t) < 60 or RE_LEGENDA_FLEX.match(t) or re.match(r"^Fonte\b", t) or "\t" in b.obj.text:
+        if len(t) < 60 or RE_LEGENDA_FLEX.match(t) or re.match(r"^Fonte\b", t) or "\t" in b.bruto:
             continue
         if du.nivel_titulo_estilo(b.obj):
             continue
@@ -68,7 +68,7 @@ def titulos_aproximados(d):
 def _titulo_flex(d, b):
     """Título de seção numerado, reconhecido mesmo sem estilo/negrito (o que o modelo não garante)."""
     t = b.texto
-    if not t or len(t) > 150 or "\t" in b.obj.text or RE_SUMARIO.search(t) or d.regiao(b.i) == "pre":
+    if not t or len(t) > 150 or "\t" in b.bruto or RE_SUMARIO.search(t) or d.regiao(b.i) == "pre":
         return None
     m = RE_SECAO.match(t)
     if not m or len(t.split()) > 18 or re.search(r"[.;!?]\s+\S", t.rstrip(".")):
@@ -94,7 +94,7 @@ def titulos_flexiveis(d):
                 ponto_final.append((b.texto, b.i))
             if du.alinhamento(b.obj) == WD_ALIGN_PARAGRAPH.CENTER:
                 centralizados.append((b.texto, b.i))
-            if re.match(r"^\d{1,2}(?:\.\d{1,2}){0,6}\.?(\t|\s{2,})", b.obj.text or b.texto):
+            if re.match(r"^\d{1,2}(?:\.\d{1,2}){0,6}\.?(\t|\s{2,})", b.bruto or b.texto):
                 espaco.append((b.texto, b.i))
             continue
         mm = re.match(r"^(\d{1,2}(?:\.\d{1,2}){0,5})\.?\s+([A-ZÀ-Ý][^.:]{2,70})[.:]\s+([A-ZÀ-Ý].{80,})$", b.texto)
@@ -126,7 +126,7 @@ def legendas(d):
         if d.regiao(b.i) == "pre":
             continue
         m = RE_LEGENDA_FLEX.match(b.texto)
-        if m and "\t" not in b.obj.text and len(b.texto) < 250:
+        if m and "\t" not in b.bruto and len(b.texto) < 250:
             palavra = m.group(1)
             padrao = palavra[:1].upper() + palavra[1:].lower()
             if (palavra != padrao or palavra.lower() in ("fig.", "tab.")) and m.group(3):
@@ -171,9 +171,9 @@ def _fonte_run(run, par, doc, tema):
     rf = run._r.rPr.find(qn("w:rFonts")) if run._r.rPr is not None else None
     if rf is not None and rf.get(qn("w:asciiTheme")):
         return tema[1] if "major" in rf.get(qn("w:asciiTheme")) else tema[0]
-    for est in du._cadeia(par.style):
-        if est.font.name:
-            return est.font.name
+    nome = du.fonte_nos_estilos(run, par, "name", estilo_do_run=False, so_verdadeiro=True)
+    if nome:
+        return nome
     try:
         d_rf = doc.styles.element.find(qn("w:docDefaults")).find(".//" + qn("w:rFonts"))
         if d_rf is not None:
@@ -208,19 +208,20 @@ def formatacao_texto(d):
         p = b.obj
         f = Counter()
         for r in p.runs:
-            if not r.text.strip():
+            t = r.text
+            if not t.strip():
                 continue
             if r._r.getparent().tag == qn("w:hyperlink") or (r.style is not None and "Hyperlink" in (r.style.name or "")):
                 continue
             nome = _fonte_run(r, p, d.doc, tema)
             if nome:
-                f[nome] += len(r.text)
+                f[nome] += len(t)
             cor = r.font.color
             preta = cor is None or cor.type is None or (cor.rgb is not None and str(cor.rgb) in ("000000", "auto")) \
                 or (cor.theme_color in (MSO_THEME_COLOR.TEXT_1, MSO_THEME_COLOR.DARK_1))
             realce = r.font.highlight_color is not None
-            if (not preta or realce) and len(r.text.strip()) > 2 and b.i not in {i for _, i in coloridos}:
-                coloridos.append((f"{'realce' if realce else 'cor'}: “{r.text.strip()[:60]}”", b.i))
+            if (not preta or realce) and len(t.strip()) > 2 and b.i not in {i for _, i in coloridos}:
+                coloridos.append((f"{'realce' if realce else 'cor'}: “{t.strip()[:60]}”", b.i))
         principal = f.most_common(1)[0][0] if f else None
         if principal:
             fontes[principal] += 1
@@ -274,7 +275,7 @@ RE_ESP_PAR = re.compile(r"\( +|(?<=\S) +\)")
 def tipografia(d):
     duplos, antes_pont, parenteses, aspas = [], [], [], []
     for b in d.paragrafos("textual") + d.paragrafos("pos"):
-        t = b.obj.text or ""
+        t = b.bruto or ""
         if not t.strip() or "\t" in t:
             continue
         if RE_ESP_DUPLO.search(t):
@@ -456,7 +457,7 @@ def sumario_extra(d):
     for b in d.blocos[sum_b.i + 1:min(i_intro, sum_b.i + 300)]:
         if b.tipo != "p" or not b.texto:
             continue
-        if not (RE_SUMARIO.search(b.texto) or "\t" in b.obj.text):
+        if not (RE_SUMARIO.search(b.texto) or "\t" in b.bruto):
             continue
         k = re.sub(r"^\d+(\.\d+)*\.?\s*", "", chave(b.texto))
         if re.match(PRE_NO_SUMARIO, k):

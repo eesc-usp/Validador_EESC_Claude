@@ -11,12 +11,12 @@ local), em modo público, e mantém o túnel do Cloudflare ligado (se for o caso
 compartilhar/link_publico.txt. Com Tailscale Funnel o túnel é mantido pelo próprio Tailscale.
 """
 import json
-import re
-import threading
 import os
+import re
 import socket
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 

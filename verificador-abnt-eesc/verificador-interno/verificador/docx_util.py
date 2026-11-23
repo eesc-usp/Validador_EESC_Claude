@@ -8,10 +8,14 @@ import re
 from collections import Counter
 
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
-from docx.oxml.ns import qn
 from docx.shared import Length
 from docx.table import Table
 from docx.text.paragraph import Paragraph
+
+from . import cache
+from .cache import por_elemento, qn
+
+cache.instalar()
 
 EMU_POR_CM = 360000
 
@@ -22,22 +26,45 @@ def cm(valor):
 
 # ---------------------------------------------------------------- blocos
 def blocos(doc):
-    """Percorre o corpo na ordem real: ('p', Paragraph) ou ('t', Table)."""
-    for el in doc.element.body.iterchildren():
-        if el.tag == qn("w:p"):
+    """Percorre o corpo na ordem real: ('p', Paragraph) ou ('t', Table).
+
+    Entra nos controles de conteúdo (w:sdt) do corpo: o sumário automático do Word, por exemplo,
+    fica dentro de um — sem isso, as linhas dele não seriam vistas."""
+    yield from _blocos_de(doc.element.body, doc)
+
+
+_W_P, _W_TBL, _W_SDT, _W_SDT_CONTENT, _W_CUSTOM_XML = (
+    qn("w:p"), qn("w:tbl"), qn("w:sdt"), qn("w:sdtContent"), qn("w:customXml"))
+
+
+def _blocos_de(raiz, doc):
+    for el in raiz.iterchildren():
+        tag = el.tag
+        if tag == _W_P:
             yield "p", Paragraph(el, doc)
-        elif el.tag == qn("w:tbl"):
+        elif tag == _W_TBL:
             yield "t", Table(el, doc)
+        elif tag == _W_SDT:
+            conteudo = el.find(_W_SDT_CONTENT)
+            if conteudo is not None:
+                yield from _blocos_de(conteudo, doc)
+        elif tag == _W_CUSTOM_XML:
+            yield from _blocos_de(el, doc)
 
 
+@por_elemento
 def texto(par):
     """Texto visível: inclui o que está em alterações controladas inseridas e exclui o apagado."""
-    from .correcao import texto_atual
+    from .texto import texto_atual
     return texto_atual(par).strip()
 
 
 # ---------------------------------------------------------------- padrões do documento
 def _doc_defaults(doc):
+    return cache.memo(("doc_defaults", doc), lambda: _doc_defaults_ler(doc))
+
+
+def _doc_defaults_ler(doc):
     estilos = doc.styles.element
     dd = estilos.find(qn("w:docDefaults"))
     sz, linha = None, None
@@ -59,51 +86,74 @@ def _cadeia(estilo):
         estilo = estilo.base_style
 
 
+def cadeia_par(par):
+    """Estilo do parágrafo e seus estilos-base (guardado por documento)."""
+    return cache.cadeia(par, lambda p: p.style)
+
+
+def cadeia_run(run):
+    """Estilo de caractere do trecho e seus estilos-base (guardado por documento)."""
+    return cache.cadeia(run, lambda r: r.style)
+
+
 # ---------------------------------------------------------------- fonte
+def fonte_nos_estilos(run, par, prop, estilo_do_run=True, so_verdadeiro=False):
+    """Primeiro valor da propriedade de fonte 'prop' definido nos estilos: primeiro na cadeia do
+    estilo de caractere do trecho (se 'estilo_do_run'), depois na do parágrafo. None se nenhum define.
+
+    Os estilos não mudam durante uma análise, então a resposta é guardada por par de estilos."""
+    def calcular():
+        for cad in ((cadeia_run(run), cadeia_par(par)) if estilo_do_run else (cadeia_par(par),)):
+            for est in cad:
+                v = getattr(est.font, prop)
+                if (v if so_verdadeiro else v is not None):
+                    return v
+        return None
+    if not cache.ativo():
+        return calcular()
+    try:
+        k = ("fonte_estilos", prop, estilo_do_run, so_verdadeiro, par.part,
+             cache.id_do_estilo(run._r) if estilo_do_run else None, cache.id_do_estilo(par._p))
+    except Exception:
+        return calcular()
+    return cache.memo(k, calcular)
+
+
 def tamanho_run(run, par, doc):
     if run.font.size is not None:
         return run.font.size.pt
-    if run.style is not None:
-        for est in _cadeia(run.style):
-            if est.font.size is not None:
-                return est.font.size.pt
-    for est in _cadeia(par.style):
-        if est.font.size is not None:
-            return est.font.size.pt
+    v = fonte_nos_estilos(run, par, "size")
+    if v is not None:
+        return v.pt
     return _doc_defaults(doc)[0] or 10.0  # Word usa 10 pt se nada for definido
 
 
+@por_elemento
 def tamanho_predominante(par, doc):
     """Tamanho de fonte que cobre mais caracteres do parágrafo."""
     cont = Counter()
     for r in par.runs:
-        if r.text.strip():
-            cont[tamanho_run(r, par, doc)] += len(r.text)
+        t = r.text
+        if t.strip():
+            cont[tamanho_run(r, par, doc)] += len(t)
     return cont.most_common(1)[0][0] if cont else None
 
 
 def negrito_run(run, par):
     if run.bold is not None:
         return run.bold
-    if run.style is not None:
-        for est in _cadeia(run.style):
-            if est.font.bold is not None:
-                return est.font.bold
-    for est in _cadeia(par.style):
-        if est.font.bold is not None:
-            return est.font.bold
-    return False
+    v = fonte_nos_estilos(run, par, "bold")
+    return v if v is not None else False
 
 
 def italico_run(run, par):
     if run.italic is not None:
         return run.italic
-    for est in _cadeia(par.style):
-        if est.font.italic is not None:
-            return est.font.italic
-    return False
+    v = fonte_nos_estilos(run, par, "italic", estilo_do_run=False)
+    return v if v is not None else False
 
 
+@por_elemento
 def texto_marcado(par):
     """Texto com **negrito** marcado, para as referências não perderem o destaque."""
     partes, buf, em_negrito = [], "", False
@@ -120,31 +170,36 @@ def texto_marcado(par):
     return re.sub(r"\*\*(\s*)\*\*", r"\1", t).strip()
 
 
+@por_elemento
 def tem_negrito(par):
     return any(negrito_run(r, par) for r in par.runs if r.text.strip())
 
 
+@por_elemento
 def tem_italico(par):
     return any(italico_run(r, par) for r in par.runs if r.text.strip())
 
 
+@por_elemento
 def todo_negrito(par):
     runs = [r for r in par.runs if r.text.strip()]
     return bool(runs) and all(negrito_run(r, par) for r in runs)
 
 
 # ---------------------------------------------------------------- parágrafo
+@por_elemento
 def _pf(par, attr):
     v = getattr(par.paragraph_format, attr)
     if v is not None:
         return v
-    for est in _cadeia(par.style):
+    for est in cadeia_par(par):
         v = getattr(est.paragraph_format, attr)
         if v is not None:
             return v
     return None
 
 
+@por_elemento
 def entrelinhas(par, doc):
     """Retorna o espaçamento como múltiplo de linha (1.0, 1.5...) ou None.
 
@@ -164,11 +219,13 @@ def entrelinhas(par, doc):
     return round(float(v), 2)
 
 
+@por_elemento
 def alinhamento(par):
     a = _pf(par, "alignment")
     return a if a is not None else WD_ALIGN_PARAGRAPH.LEFT
 
 
+@por_elemento
 def recuo_esquerdo_cm(par):
     v = _pf(par, "left_indent")
     return cm(v) or 0.0
@@ -202,13 +259,15 @@ def texto_antes_do_br(par):
     return False
 
 
+@por_elemento
 def tem_imagem(par):
     return bool(par._p.xpath(".//w:drawing")) or bool(par._p.xpath(".//w:pict"))
 
 
+@por_elemento
 def nivel_titulo_estilo(par):
     """Nível do título pelo estilo (Heading N / Título N / nível de tópico)."""
-    for est in _cadeia(par.style):
+    for est in cadeia_par(par):
         nome = (est.name or "").lower()
         m = re.match(r"(heading|título|titulo)\s*(\d)", nome)
         if m:
@@ -226,11 +285,12 @@ def nivel_titulo_estilo(par):
     return None
 
 
+@por_elemento
 def tem_numeracao_automatica(par):
     ppr = par._p.find(qn("w:pPr"))
     if ppr is not None and ppr.find(qn("w:numPr")) is not None:
         return True
-    for est in _cadeia(par.style):
+    for est in cadeia_par(par):
         ppr = est.element.find(qn("w:pPr"))
         if ppr is not None and ppr.find(qn("w:numPr")) is not None:
             return True

@@ -132,7 +132,7 @@ def listar_modelos(cfg):
                    and not re.search(r"audio|realtime|tts|transcribe|image|search|embedding", i)]
         return ids
     except requests.RequestException as e:
-        raise ErroIA(f"Sem conexão com {base}: {e.__class__.__name__}")
+        raise ErroIA(f"Sem conexão com {base}: {e.__class__.__name__}") from e
 
 
 # ====================================================================== chamada
@@ -164,7 +164,7 @@ def _chamar(cfg, prompt):
             try:
                 return "".join(part.get("text", "") for part in dados["candidates"][0]["content"]["parts"])
             except (KeyError, IndexError):
-                raise ErroIA(f"Resposta vazia do Gemini: {str(dados)[:200]}")
+                raise ErroIA(f"Resposta vazia do Gemini: {str(dados)[:200]}") from None
         if p == "anthropic":
             r = _checar(requests.post(f"{base}/messages", timeout=TIMEOUT, headers={
                 "x-api-key": chave, "anthropic-version": "2023-06-01", "content-type": "application/json"},
@@ -182,7 +182,7 @@ def _chamar(cfg, prompt):
         _checar(r)
         return r.json()["choices"][0]["message"]["content"] or ""
     except requests.RequestException as e:
-        raise ErroIA(f"Sem conexão com {base}: {e.__class__.__name__}")
+        raise ErroIA(f"Sem conexão com {base}: {e.__class__.__name__}") from e
 
 
 def _achado(ref, dados):

@@ -5,23 +5,33 @@ Rodar:  streamlit run app.py   (ou atalho "Verificador ABNT EESC" / iniciar.bat)
 import hashlib
 import html
 import io
-import json
-import re
 import os
+import re
 import secrets
-import zipfile
 import time
+import zipfile
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from verificador import AJUSTAR, OK, RESUMO_ELEMENTOS, VERIFICAR, analisar
-from verificador import anotacao, configuracao, correcao, edicao, ia_provedores, relatorio
+from verificador import (
+    AJUSTAR,
+    OK,
+    RESUMO_ELEMENTOS,
+    VERIFICAR,
+    analisar,
+    anotacao,
+    configuracao,
+    ia_provedores,
+    relatorio,
+)
 from verificador import perfil as PF
 from verificador import trabalho as TRAB
+from verificador.cache import leitura
 from verificador.documento import Documento
+from verificador.texto import tem_alteracoes as _tem_alteracoes
 from verificador.visualizacao import renderizar, serializar
 
 PASTA = Path(__file__).parent
@@ -121,13 +131,36 @@ def analisar_bytes(dados):
 
 @st.cache_resource(show_spinner=False, max_entries=8)
 def visual(chave_cache, dados, _achados):
-    html_doc, d = renderizar(io.BytesIO(dados))
-    return html_doc, serializar(d, _achados)
+    with leitura():  # desenhar e localizar os achados no mesmo documento: as leituras são reaproveitadas
+        html_doc, d = renderizar(io.BytesIO(dados))
+        return html_doc, serializar(d, _achados)
 
 
 @st.cache_resource(show_spinner=False, max_entries=8)
 def apontamentos(chave_cache, dados, _achados):
     return anotacao.gerar(dados, _achados)
+
+
+@st.cache_resource(show_spinner=False, max_entries=8)
+def relatorio_docx(chave_cache, _todos, nome, incluir_ok, observacao):
+    """Relatório .docx (guardado pela chave: documento, norma, data e opções)."""
+    return relatorio.gerar(_todos, nome, incluir_ok, observacao)
+
+
+@st.cache_resource(show_spinner=False, max_entries=16)
+def tem_alteracoes(dados):
+    """Se o arquivo do aluno tem alterações controladas pendentes (guardado: a tela é redesenhada a cada clique)."""
+    return _tem_alteracoes(dados)
+
+
+def _celula_vazia(v):
+    """Célula sem valor no editor de tabela (None, NaN ou NA do pandas)."""
+    if v is None:
+        return True
+    try:
+        return bool(pd.isna(v))
+    except (TypeError, ValueError):
+        return False
 
 
 def tabela(dados, coluna=None):
@@ -220,8 +253,7 @@ def ia_permitida(n):
 # ------------------------------------------------------------------ cofre: o trabalho aberto sobrevive a
 # recarregar a página (F5, troca de tema). Fica só na memória; apaga sozinho.
 VALIDADE_COFRE = 3600 if PUBLICO else 8 * 3600
-CAMPOS_COFRE = ("nome", "h_orig", "original", "doc", "historico", "ia", "log", "ult_auto", "perfil_id",
-                "perfis_sessao", "tipo_detectado")
+CAMPOS_COFRE = ("nome", "h_orig", "original", "ia", "perfil_id", "perfis_sessao", "tipo_detectado")
 
 
 @st.cache_resource
@@ -250,8 +282,7 @@ def cofre_recuperar():
     if not item or time.time() - item["_ts"] > VALIDADE_COFRE:
         return False
     ss.update({c: item[c] for c in CAMPOS_COFRE if item.get(c) is not None})
-    for c in ("foco", "msg", "ult_nonce"):
-        ss.setdefault(c, None)
+    ss.setdefault("msg", None)
     ss.token = t
     return True
 
@@ -379,10 +410,6 @@ def form_provedor(p):
 
 with st.sidebar:
     st.subheader("⚙️ Configurações")
-    rastrear = st.toggle("Registrar mudanças de texto no controle de alterações do Word", value=True,
-                         help="Vale para edições manuais e correções automáticas. O aluno aceita ou rejeita "
-                              "cada mudança em Revisão > Aceitar/Rejeitar.")
-    st.divider()
     st.subheader("🤖 IA para as referências")
     prontos = configuracao.provedores_prontos(CONFIG)
     visiveis = list(ia_provedores.PROVEDORES) if admin else (prontos or ["ollama"])
@@ -488,7 +515,7 @@ cfg_ativo = {**cfg_ativo, "instrucoes": PERFIL.get("instrucoes_ia", "")}
 def editor_norma():
     base = ss.get("rascunho_norma") or PF.completo(PERFIL)
     v = ss.get("ver_norma", 0)  # muda quando um rascunho novo é carregado (renova os campos)
-    st.caption("Ajuste os padrões que a verificação e a correção automática seguem. A norma da EESC continua "
+    st.caption("Ajuste os padrões que a verificação segue. A norma da EESC continua "
                "disponível como padrão; aqui você cria uma variação ou uma norma nova.")
     aba_imp, aba_val, aba_reg, aba_ia = st.tabs(["📥 Começar de…", "📏 Valores", "➕ Regras próprias",
                                                   "🤖 Instruções para a IA"])
@@ -627,7 +654,7 @@ def editor_norma():
     regras = []
     for r in editado.to_dict("records"):
         if str(r.get("padrao") or "").strip():
-            regras.append({k: (bool(v) if k == "regex" else ("" if v is None or v != v else v)) for k, v in r.items()})
+            regras.append({k: (bool(v) if k == "regex" else ("" if _celula_vazia(v) else v)) for k, v in r.items()})
     novo = PF.completo({
         "tipo": tipo_n,
         "nome": nome.strip() or "Minha norma", "margens": marg, "fonte_texto": fonte, "entrelinhas": entre,
@@ -722,16 +749,16 @@ if not arq and not recuperado:
     if PUBLICO:
         st.markdown("""<div class="boas-vindas">
       <div class="bv"><div class="ic">📤</div><b>1. Envie o seu .docx</b><span>Arraste o arquivo do Word (.docx) do seu trabalho para a área acima. PDF não é aceito.</span></div>
-      <div class="bv"><div class="ic">🔎</div><b>2. Veja os pontos</b><span>Clique num item da lista: o documento rola até o trecho e marca o problema.</span></div>
-      <div class="bv"><div class="ic">✏️</div><b>3. Corrija</b><span>Aplique as correções automáticas ou dê duplo clique num parágrafo para editar.</span></div>
-      <div class="bv"><div class="ic">📄</div><b>4. Baixe</b><span>Baixe a versão corrigida ou o original com comentários e finalize no Word.</span></div>
+      <div class="bv"><div class="ic">🔎</div><b>2. Veja as marcações</b><span>O trabalho aparece página por página, com cada problema marcado e numerado. Clique numa marcação para ver o que ajustar.</span></div>
+      <div class="bv"><div class="ic">💬</div><b>3. Baixe com comentários</b><span>O seu arquivo volta igual, só com comentários do Word nos pontos a revisar.</span></div>
+      <div class="bv"><div class="ic">✍️</div><b>4. Corrija no Word</b><span>Você faz as correções no seu arquivo. Depois, envie de novo para conferir.</span></div>
     </div>""", unsafe_allow_html=True)
         st.stop()
     st.markdown("""<div class="boas-vindas">
       <div class="bv"><div class="ic">📤</div><b>1. Envie o .docx</b><span>Arraste o trabalho do aluno em .docx para a área acima (PDF e .doc não são aceitos).</span></div>
-      <div class="bv"><div class="ic">🔎</div><b>2. Revise no texto</b><span>Clique num ponto da lista: o documento rola até o trecho e marca o problema.</span></div>
-      <div class="bv"><div class="ic">✏️</div><b>3. Corrija aqui mesmo</b><span>Duplo clique num parágrafo para editar, ou aplique as correções automáticas.</span></div>
-      <div class="bv"><div class="ic">📄</div><b>4. Devolva ao aluno</b><span>Baixe o documento revisado (com marcações) e o relatório.</span></div>
+      <div class="bv"><div class="ic">🔎</div><b>2. Confira as marcações</b><span>O trabalho aparece como num leitor de PDF, página por página, com cada problema marcado e numerado.</span></div>
+      <div class="bv"><div class="ic">💬</div><b>3. Gere os comentários</b><span>Baixe o arquivo do aluno com um comentário do Word em cada ponto (o texto não é alterado).</span></div>
+      <div class="bv"><div class="ic">📄</div><b>4. Devolva ao aluno</b><span>Envie o arquivo comentado e o relatório. As correções são feitas pelo aluno.</span></div>
     </div>""", unsafe_allow_html=True)
     st.stop()
 if arq is not None:
@@ -752,8 +779,7 @@ if arq is not None:
         if not ok_lim:
             st.warning("Você atingiu o limite de verificações por hora deste site. Tente de novo mais tarde.")
             st.stop()
-        ss.update(h_orig=h_orig, original=original, doc=original, historico=[], ia=[], log=[], nome=arq.name,
-                  ult_nonce=None, foco=None, msg=None, ult_auto=None)
+        ss.update(h_orig=h_orig, original=original, ia=[], nome=arq.name, msg=None)
         try:
             ss.tipo_detectado = TRAB.detectar(Documento(io.BytesIO(original)))[:2]
         except Exception:
@@ -768,34 +794,32 @@ nome_arq, h_orig = ss.nome, ss.h_orig
 cofre_guardar()
 
 
-# ------------------------------------------------------------------ análise do documento de trabalho
+# ------------------------------------------------------------------ análise (o arquivo do aluno não é alterado)
 try:
     with st.spinner("Analisando o documento..."):
-        achados, refs = analisar_bytes(ss.doc)
-        h_doc = hashlib.md5(ss.doc).hexdigest()
+        achados, refs = analisar_bytes(ss.original)
         ia_validos = [a for a in ss.ia if a.trechos and a.trechos[0] in {r.texto for r in refs}]
         todos = achados + ia_validos
-        html_doc, serial = visual(h_doc + PF.chave(PERFIL) + "|" + "|".join(a.status + a.item for a in ia_validos),
-                                  ss.doc, todos)
+        chave_ia = "|".join(a.status + a.item + (a.trechos[0] if a.trechos else "") for a in ia_validos)
+        html_doc, serial = visual(h_orig + PF.chave(PERFIL) + "|" + chave_ia, ss.original, todos)
+        dados_apont, n_apont = apontamentos(h_orig + PF.chave(PERFIL) + "|" + chave_ia, ss.original, todos)
 except Exception as e:
     st.error(f"Não foi possível ler o arquivo: {e}")
     st.stop()
 
 cont = {s: sum(a.status == s for a in todos) for s in (AJUSTAR, VERIFICAR, OK)}
-cont_orig = {s: sum(a.status == s for a in analisar_bytes(ss.original)[0]) for s in (AJUSTAR, VERIFICAR)}
 
-# ------------------------------------------------------------------ cabeçalho do arquivo e ações
-n_ed = len(ss.historico)
+# ------------------------------------------------------------------ cabeçalho do arquivo e downloads
 t_det, g_det = ss.get("tipo_detectado") or (None, None)
 rot_det = ({"doutorado": "Tese (doutorado)", "mestrado": "Dissertação (mestrado)"}.get(g_det) or
            (PF.TIPOS[t_det] if t_det else "tipo não identificado"))
 tags = [f"<span class='tag'>{'🎓' if t_det == 'tcc' else '📚' if t_det else '❔'} {rot_det}</span>",
         f"<span class='tag'>{len(refs)} referências</span>",
         f"<span class='tag'>📐 {html.escape(PERFIL['nome'])}</span>"]
-if n_ed:
-    tags.append(f"<span class='tag verde'>{n_ed} alteração(ões) feitas aqui</span>")
-if edicao.tem_alteracoes(ss.doc):
-    tags.append("<span class='tag amarela'>com alterações controladas</span>")
+if tem_alteracoes(ss.original):
+    tags.append("<span class='tag amarela' title='O aluno enviou o arquivo com alterações controladas ainda não "
+                "aceitas. O verificador lê o texto como se elas estivessem aceitas.'>com alterações controladas "
+                "do aluno</span>")
 c_arq, c_fechar = st.columns([8, 1], vertical_alignment="center")
 c_arq.markdown(f"<div class='arquivo'><span class='nome'>📄 {html.escape(nome_arq)}</span>{''.join(tags)}</div>",
                unsafe_allow_html=True)
@@ -804,98 +828,41 @@ if c_fechar.button("✖ Fechar", width="stretch", help="Fecha este documento e a
     ss.n_envio = ss.get("n_envio", 0) + 1  # limpa o campo de envio
     st.rerun()
 
-k = st.columns(4)
-kpis = [("#D9475B", "Ajustar", cont[AJUSTAR], cont_orig[AJUSTAR]),
-        ("#E0A800", "Conferir", cont[VERIFICAR], cont_orig[VERIFICAR]),
-        ("#2F9E5B", "Em conformidade", cont[OK], None),
-        ("#1F4E79", "Alterações aplicadas", sum(len(x) for x in ss.log), None)]
-for col, (cor, rot, val, antes) in zip(k, kpis):
-    sub = f"<div class='sub'>no envio: {antes}</div>" if antes is not None and n_ed else "<div class='sub'>&nbsp;</div>"
+k = st.columns([1, 1, 1, 1, 1.6])
+kpis = [("#D9475B", "Ajustar", cont[AJUSTAR], "fora da norma"),
+        ("#E0A800", "Conferir", cont[VERIFICAR], "pedem conferência manual"),
+        ("#2F9E5B", "Em conformidade", cont[OK], "itens conferidos"),
+        ("#1F4E79", "Comentários", n_apont, "no arquivo para o aluno")]
+for col, (cor, rot, val, sub) in zip(k, kpis):
     col.markdown(f"<div class='kpi'><div class='rot'><span class='dot' style='background:{cor}'></span>{rot}</div>"
-                 f"<div class='val'>{val}</div>{sub}</div>", unsafe_allow_html=True)
+                 f"<div class='val'>{val}</div><div class='sub'>{sub}</div></div>", unsafe_allow_html=True)
+base = re.sub(r"(_(limpo|revisado|corrigido|apontamentos|comentado))+$", "", nome_arq.rsplit(".", 1)[0])
+with k[4]:
+    botao_arquivo(st, "⬇ Arquivo com comentários (.docx)", dados_apont, f"{base}_comentado.docx", type="primary",
+                  width="stretch", help=f"O arquivo do aluno exatamente como foi enviado, com {n_apont} comentário(s) "
+                                        "do Word na margem dizendo o que ajustar e como (trechos realçados em "
+                                        "amarelo). Nenhuma palavra do texto é alterada.")
+    st.caption("O texto do aluno não é alterado: o verificador só aponta. Quem corrige é o aluno, no Word.")
+
+# ------------------------------------------------------------------ visualizador (somente leitura)
+area_trabalho(achados=serial, html=html_doc, versao=h_orig + PF.chave(PERFIL) + chave_ia, mensagem=ss.msg,
+              altura=880, escuro=ESCURO, key="area", default=None)
+ss.msg = None
 
 st.write("")
-a1, a2, a3, a4, a5 = st.columns([1, 1, 1.45, 1.25, 1.75])
-if a1.button("↶ Desfazer", disabled=not n_ed, width="stretch"):
-    ss.doc = ss.historico.pop()
-    if ss.log:
-        ss.log.pop()
-    ss.msg = "Última alteração desfeita."
-    st.rerun()
-if a2.button("⟲ Original", disabled=not n_ed, width="stretch", help="Volta ao arquivo enviado pelo aluno"):
-    ss.doc, ss.historico, ss.log = ss.original, [], []
-    ss.msg = "Documento restaurado para a versão enviada."
-    st.rerun()
-base = re.sub(r"(_(limpo|revisado|corrigido|apontamentos))+$", "", nome_arq.rsplit(".", 1)[0])  # evita "_limpo_revisado"
-marcas = edicao.tem_alteracoes(ss.doc)
-botao_arquivo(a3, "⬇ Documento revisado", ss.doc, f"{base}_revisado.docx", type="primary", width="stretch",
-              help="Com as alterações de texto marcadas (controle de alterações) para o aluno aceitar ou rejeitar")
-botao_arquivo(a4, "⬇ Versão limpa", edicao.aceitar_tudo(ss.doc) if marcas else ss.doc, f"{base}_limpo.docx",
-              width="stretch", help="Mesmo conteúdo, com todas as alterações já aceitas (sem marcações)")
-achados_orig = analisar_bytes(ss.original)[0]
-refs_orig = {r.texto for r in analisar_bytes(ss.original)[1]}
-ia_orig = [x for x in ss.ia if x.trechos and x.trechos[0] in refs_orig]
-dados_apont, n_apont = apontamentos(h_orig + PF.chave(PERFIL) + "|" + "|".join(x.status + x.trechos[0] for x in ia_orig),
-                                    ss.original, achados_orig + ia_orig)
-botao_arquivo(a5, "⬇ Original com apontamentos", dados_apont, f"{base}_apontamentos.docx", width="stretch",
-              help=f"O arquivo do aluno SEM correções, com {n_apont} comentário(s) do Word indicando onde e como "
-                   "corrigir (trechos destacados em amarelo). Para o próprio aluno fazer as correções.")
-
-if not n_ed:
-    situacao = ("ℹ️ Nenhuma alteração feita ainda: <b>revisado e limpo sairão iguais ao enviado</b>. "
-                "Aplique as correções automáticas (aba abaixo) ou edite o texto antes de salvar.")
-elif marcas:
-    situacao = ("✅ <b>Documento revisado</b>: mostra as mudanças de texto marcadas (riscado/inserido) para o aluno "
-                "aceitar ou rejeitar. <b>Versão limpa</b>: o mesmo texto com tudo já aceito. Margens, fontes e "
-                "espaçamentos já vêm corrigidos nos dois.")
-else:
-    situacao = ("ℹ️ As alterações foram aplicadas <b>sem marcação</b> (registro no controle de alterações desligado "
-                "ou só mudanças de formatação): os dois arquivos saem iguais.")
-situacao += (f"<br>📝 <b>Original com apontamentos</b>: o arquivo como o aluno enviou, sem nenhuma correção, com "
-             f"{n_apont} comentário(s) na margem dizendo onde e como corrigir.")
-if re.search(r"_(limpo|revisado|corrigido|apontamentos)$", nome_arq.rsplit(".", 1)[0]):
-    situacao += ("<br>⚠️ O arquivo aberto parece ser uma versão já gerada pelo verificador (nome terminado em "
-                 "_limpo/_revisado). Para mostrar as marcações das correções, abra o arquivo original do aluno.")
-st.markdown(f"<div style='font-size:.86rem;color:var(--aviso-tx);background:var(--aviso);border-radius:8px;"
-            f"padding:8px 12px;margin:2px 0 8px'>{situacao}</div>", unsafe_allow_html=True)
-
-# ------------------------------------------------------------------ área de trabalho
-evento = area_trabalho(achados=serial, html=html_doc, versao=h_doc, foco=ss.foco, mensagem=ss.msg,
-                       altura=860, escuro=ESCURO, key="area", default=None)
-ss.foco, ss.msg = None, None
-if evento and evento.get("nonce") != ss.ult_nonce:
-    ss.ult_nonce = evento.get("nonce")
-    if evento.get("acao") == "editar":
-        try:
-            novo, aviso = edicao.editar(ss.doc, str(evento["bloco"]), evento["texto"], evento["original"], rastrear)
-            if novo != ss.doc:
-                ss.historico.append(ss.doc)
-                ss.doc = novo
-                ss.log.append([{"Grupo": "Edição manual",
-                                "Alteração": f"“{evento['original'][:60]}” → “{evento['texto'][:60]}”"}])
-            ss.foco = str(evento["bloco"])
-            ss.msg = aviso or "Alteração salva no documento."
-        except edicao.EdicaoRecusada as e:
-            ss.msg = f"⚠ {e}"
-        except Exception as e:
-            ss.msg = f"⚠ Não foi possível salvar: {e}"
-        st.rerun()
-
-st.write("")
-aba_el, aba_auto, aba_ia, aba_rel = st.tabs(["🧾 Elementos do trabalho", "✍️ Correções automáticas",
-                                              "🤖 Revisão das referências por IA", "📄 Relatório"])
+aba_el, aba_ia, aba_rel = st.tabs(["🧾 Elementos do trabalho", "🤖 Revisão das referências por IA", "📄 Relatório"])
 
 # ------------------------------------------------------------------ elementos: aparece · formatação · conteúdo
 with aba_el:
     resumo_el = next((a for a in todos if a.item == RESUMO_ELEMENTOS), None)
     if resumo_el and resumo_el.tabela:
         lin = resumo_el.tabela
-        faltam = [l["Elemento"] for l in lin if l["Aparece"].startswith("❌")]
+        faltam = [x["Elemento"] for x in lin if x["Aparece"].startswith("❌")]
         c1, c2, c3 = st.columns(3)
-        c1.metric("Encontrados", sum(l["Aparece"].startswith("✅") for l in lin))
+        c1.metric("Encontrados", sum(x["Aparece"].startswith("✅") for x in lin))
         c2.metric("Obrigatórios faltando", len(faltam))
-        c3.metric("Com algo a conferir", sum(("❌" in l["Formatação"] + l["Conteúdo confere"]) or
-                                             ("⚠️" in l["Formatação"] + l["Conteúdo confere"]) for l in lin))
+        c3.metric("Com algo a conferir", sum(("❌" in x["Formatação"] + x["Conteúdo confere"]) or
+                                             ("⚠️" in x["Formatação"] + x["Conteúdo confere"]) for x in lin))
         st.caption("Cada elemento é procurado no arquivo inteiro (não precisa estar na mesma página do modelo). "
                    "**Aparece**: existe no trabalho · **Formatação**: título, alinhamento, recuos e regras de "
                    "forma · **Conteúdo confere**: o que está escrito bate com o resto do trabalho (autor, título e "
@@ -903,59 +870,10 @@ with aba_el:
                    "citadas que existem, obras nas referências...). Os detalhes de cada ❌/⚠️ estão na lista de "
                    "pontos a revisar, com o trecho marcado no documento.")
         so_tem = st.toggle("Esconder opcionais que o trabalho não tem", value=True)
-        mostrar = [l for l in lin if not (so_tem and l["Aparece"].startswith("—"))]
+        mostrar = [x for x in lin if not (so_tem and x["Aparece"].startswith("—"))]
         tabela(mostrar)
     else:
         st.info("Não foi possível montar a tabela de elementos para este arquivo.")
-
-# ------------------------------------------------------------------ correções automáticas
-with aba_auto:
-    st.caption("Revisão dupla: corrige, analisa de novo e passa uma segunda vez; cada passada só é mantida se "
-               "não apagar nem inventar palavras do aluno e não aumentar as pendências. Aplica as correções seguras. Mudanças de texto entram como alteração controlada "
-               "(se ativado nas configurações); formatação é aplicada direto. O que depende do autor não é "
-               "inventado e continua na lista de pontos a revisar.")
-    sugestoes = {a.trechos[0]: a.como_corrigir for a in ia_validos
-                 if a.status == AJUSTAR and a.como_corrigir and a.trechos}
-    opcoes = list(correcao.GRUPOS)
-    try:
-        escolhidos = st.pills("O que corrigir", opcoes, selection_mode="multi", default=opcoes,
-                              format_func=lambda x: correcao.GRUPOS[x])
-    except AttributeError:
-        escolhidos = st.multiselect("O que corrigir", opcoes, default=opcoes, format_func=lambda x: correcao.GRUPOS[x])
-    usar_ia = st.checkbox(f"Aplicar também as {len(sugestoes)} sugestão(ões) da IA nas referências",
-                          value=False, disabled=not sugestoes, help="Rode antes a revisão por IA.")
-    if st.button("Aplicar correções no documento", type="primary", disabled=not escolhidos):
-        with st.spinner("Revisão dupla: corrigindo, reanalisando e conferindo a integridade do texto..."):
-            novo, log, falhas, passadas = correcao.corrigir_duplo(ss.doc, escolhidos, rastrear,
-                                                                  sugestoes if usar_ia else None, PERFIL)
-        ss.ult_auto = dict(log=log, falhas=falhas, passadas=passadas)
-        if log:
-            ss.historico.append(ss.doc)
-            ss.doc = novo
-            ss.log.append(log)
-            ss.msg = f"{len(log)} correção(ões) aplicada(s)."
-        else:
-            ss.msg = "Nada a corrigir automaticamente."
-        st.rerun()
-    if ss.ult_auto:
-        log, falhas = ss.ult_auto["log"], ss.ult_auto["falhas"]
-        passadas = ss.ult_auto.get("passadas") or []
-        st.success(f"Última aplicação: {len(log)} correção(ões). Veja o resultado no documento acima.")
-        if passadas:
-            cols = st.columns(len(passadas))
-            for c, p in zip(cols, passadas):
-                icone = "✅" if p["resultado"] in ("mantida", "nada mais a corrigir") else "↩️"
-                c.markdown(f"**{icone} {p['passada']}ª passada** — {p['resultado']}  \n"
-                           f"{p['correcoes']} correção(ões) · pendências {p['antes']} → {p['depois']} · "
-                           f"texto do aluno {'preservado' if p['integra'] else 'alterado (desfeita)'}")
-        if log:
-            with st.expander(f"O que foi alterado ({len(log)})"):
-                tabela([{"Passada": x.get("Passada", "1ª"), "Grupo": x["Grupo"], "Alteração": x["Alteração"]}
-                        for x in log])
-        if falhas:
-            with st.expander(f"⚠️ Não aplicadas automaticamente ({len(falhas)})"):
-                st.caption("Trechos com formatação complexa (campos, links). Ajuste pelo editor acima ou no Word.")
-                tabela(falhas, "Trecho")
 
 # ------------------------------------------------------------------ IA
 with aba_ia:
@@ -1001,20 +919,20 @@ with aba_ia:
         if ia_validos:
             n_aj = sum(a.status == AJUSTAR for a in ia_validos)
             st.success(f"{len(ia_validos)} referências revisadas; {n_aj} com sugestão de ajuste. "
-                       "Veja na lista de pontos (categoria 'Referências (IA)'). Para aplicar as sugestões, "
-                       "use a aba 'Correções automáticas'.")
+                       "Elas aparecem marcadas no documento (categoria 'Referências (IA)') e entram como "
+                       "comentário no arquivo do aluno.")
 
 # ------------------------------------------------------------------ relatório
 with aba_rel:
     c1, c2 = st.columns([2, 1])
     obs = c1.text_area("Observações da Biblioteca (entram no relatório)", height=120)
     incluir_ok = c2.checkbox("Incluir itens em conformidade", value=False)
+    chave_rel = "|".join([h_orig, PF.chave(PERFIL), time.strftime("%Y-%m-%d"), chave_ia])  # leva a data de hoje
     botao_arquivo(c2, "⬇ Baixar relatório (.docx)",
-                  relatorio.gerar(todos, nome_arq, incluir_ok,
-                                  ("" if PF.eh_padrao(PERFIL) else f"Norma usada: {PERFIL['nome']}.\n") + obs,
-                                  alteracoes=[x for acao in ss.log for x in acao] or None),
+                  relatorio_docx(chave_rel, todos, nome_arq, incluir_ok,
+                                 ("" if PF.eh_padrao(PERFIL) else f"Norma usada: {PERFIL['nome']}.\n") + obs),
                   f"Relatorio_ABNT_{base}.docx", type="primary", width="stretch")
-    c2.caption("O relatório reflete o documento atual e lista as alterações já feitas. Revise antes de enviar.")
+    c2.caption("Lista o que precisa ser ajustado, com a seção das Diretrizes. Revise antes de enviar ao aluno.")
     pend = sorted((a for a in todos if a.status != OK), key=lambda a: (a.status != AJUSTAR, a.categoria))
     if pend:
         st.markdown("**Pendências que vão no relatório:**")

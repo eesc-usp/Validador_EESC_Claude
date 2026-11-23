@@ -2,13 +2,12 @@
 import io
 
 import pytest
-
 from conftest import EXEMPLOS
-from verificador import OK, analisar
+
+from verificador import OK, analisar, anotacao
 from verificador import perfil as PF
-from verificador.correcao import GRUPOS, corrigir_duplo
 from verificador.documento import Documento
-from verificador.edicao import aceitar_tudo
+from verificador.texto import texto_atual
 from verificador.trabalho import detectar
 
 CASOS = [
@@ -35,19 +34,16 @@ def test_detecta_tipo_de_trabalho(arquivo, tipo):
     assert detectar(Documento(EXEMPLOS / arquivo))[0] == tipo
 
 
-@pytest.mark.parametrize("arquivo,perfil", [("exemplo_correto.docx", PF.EESC_POS),
-                                            ("exemplo_tcc_correto.docx", PF.EESC)])
-def test_documento_correto_nao_recebe_correcoes(arquivo, perfil):
-    _, log, falhas, _ = corrigir_duplo((EXEMPLOS / arquivo).read_bytes(), list(GRUPOS), True, None, perfil)
-    assert log == [] and falhas == []
+def _textos(dados):
+    d = Documento(io.BytesIO(dados))
+    return [texto_atual(b.obj) if b.tipo == "p" else [c.text for r in b.obj.rows for c in r.cells] for b in d.blocos]
 
 
-@pytest.mark.parametrize("rastrear", [True, False])
-def test_correcao_reduz_pendencias_e_preserva_texto(rastrear):
-    dados = (EXEMPLOS / "exemplo_com_erros.docx").read_bytes()
-    novo, log, falhas, passadas = corrigir_duplo(dados, list(GRUPOS), rastrear, None, PF.EESC_POS)
-    assert log, "nenhuma correção aplicada"
-    assert all(p["integra"] for p in passadas)
-    antes = len(pendencias(analisar(io.BytesIO(dados), PF.EESC_POS)[0]))
-    depois = len(pendencias(analisar(io.BytesIO(aceitar_tudo(novo)), PF.EESC_POS)[0]))
-    assert depois < antes
+@pytest.mark.parametrize("arquivo,perfil,esperado", CASOS)
+def test_comentarios_nao_alteram_o_texto_do_aluno(arquivo, perfil, esperado):
+    """O arquivo com comentários tem exatamente o mesmo texto do enviado: só ganha comentários e realce."""
+    dados = (EXEMPLOS / arquivo).read_bytes()
+    achados, _ = analisar(io.BytesIO(dados), perfil)
+    comentado, n = anotacao.gerar(dados, achados)
+    assert _textos(comentado) == _textos(dados)
+    assert (n > 0) == (esperado > 0)

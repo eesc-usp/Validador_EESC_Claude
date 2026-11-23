@@ -20,6 +20,20 @@ Opções (rodar pelo PowerShell ou criar um atalho com os parâmetros):
 O script se recusa a enviar `config.json`, logs e qualquer `.docx` que não seja exemplo ou template — trabalhos
 de alunos nunca vão para o GitHub.
 
+## Pelo site do GitHub (só o navegador)
+1. Baixe o `.zip` do projeto e **extraia**. O envio é da pasta extraída, não do `.zip`.
+2. No repositório, clique em **Add file > Upload files**.
+3. Abra a pasta extraída, selecione **tudo o que está dentro dela** (pastas e arquivos, inclusive `.github`) e
+   arraste para a página. Use Chrome ou Edge: eles mantêm as subpastas.
+4. O site aceita até 100 arquivos por envio. O projeto tem menos que isso, mas se passar, envie em partes (por
+   exemplo, primeiro `verificador-interno`, depois o resto).
+5. Escreva a descrição da mudança e clique em **Commit changes**.
+6. O envio pelo site **não apaga** arquivos que saíram do projeto. Quando uma versão remover arquivos, o
+   `CHANGELOG.md` avisa. Nesse caso, apague-os pelo site: abra o arquivo, clique em **⋯** e depois em **Delete file**.
+7. Para publicar a versão, vá em **Releases > Draft a new release**, crie a tag `vX.Y.Z` (igual ao
+   `verificador-interno/VERSION`, ex.: `v2.0.0`) e clique em **Publish release**. O GitHub roda os testes e anexa
+   os `.zip` de instalação.
+
 ## Sem linha de comando (GitHub Desktop)
 1. Instale o [GitHub Desktop](https://desktop.github.com) e entre na conta.
 2. *File > Add local repository* → escolha a pasta do projeto → *create a repository* (se pedir).
@@ -33,7 +47,8 @@ Comece **privado**. Antes de abrir ao público:
 - escolha uma licença (ex.: MIT para o código) e adicione o arquivo `LICENSE`.
 
 ## O que roda sozinho no GitHub
-- **Testes** (`.github/workflows/testes.yml`): a cada envio, em Linux e Windows — pytest, abertura do app e
-  sintaxe/formato dos scripts do Windows. O resultado aparece na aba *Actions* e nos *pull requests*.
+- **Testes** (`.github/workflows/testes.yml`): a cada envio, em Linux e Windows, rodam o lint (`ruff`), o pytest
+  (regras, robustez, cache e retrato dos resultados), a abertura do app e a checagem de sintaxe e formato dos
+  scripts do Windows. O resultado aparece na aba *Actions* e nos *pull requests*.
 - **Nova versão** (`.github/workflows/versao.yml`): ao enviar uma etiqueta `v*` (opção `-Versao`), gera
   `verificador_abnt_eesc_vX.zip` e `assistente_alunos_vX.zip` em *Releases*.

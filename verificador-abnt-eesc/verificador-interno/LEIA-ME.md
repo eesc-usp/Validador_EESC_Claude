@@ -7,14 +7,18 @@ App local para a equipe da Biblioteca analisar os trabalhos enviados pelos aluno
 *Diretrizes para apresentação de dissertações e teses da USP: parte I (ABNT)*, 5. ed., 2024.
 O arquivo é processado no próprio computador: nada vai para a internet.
 
+**O verificador só aponta, não corrige.** Ele mostra o trabalho página por página, como um leitor de PDF, com
+cada problema marcado, e gera o arquivo do aluno com comentários do Word. O texto do aluno nunca é alterado:
+quem faz as correções é o próprio aluno.
+
 ## Como funciona
 
 | Etapa | O que faz | Tempo |
 |---|---|---|
-| 1. Regras fixas (sempre) | Margens, papel, fonte e entrelinhas do texto, citações longas, paginação, alíneas, elementos obrigatórios, resumo/abstract e palavras-chave, numeração e títulos das seções, legendas e fontes de figuras e tabelas, bordas de tabelas, citação × referência, formato e ordem das referências | segundos |
+| 1. Regras fixas (sempre) | Margens, papel, fonte e entrelinhas do texto, citações longas, paginação, alíneas, elementos obrigatórios, resumo/abstract e palavras-chave, numeração e títulos das seções, legendas e fontes de figuras e tabelas, bordas de tabelas, citação × referência, formato e ordem das referências | menos de 1 s (TCC de 80 páginas) |
 | 2. IA local (opcional) | Revisa cada referência contra o modelo do tipo dela (livro, artigo, capítulo, evento, tese, norma, lei...) e sugere a correção | 15–60 s por referência sem placa de vídeo |
-| 3. Versão corrigida (opcional) | Gera uma cópia do .docx do aluno com as correções seguras já aplicadas (ver abaixo) | segundos |
-| 4. Relatório | Gera um .docx editável (item, situação, o que foi encontrado, como corrigir, seção do manual) | na hora |
+| 3. Arquivo com comentários | O .docx do aluno como foi enviado, com um comentário do Word em cada ponto | na hora |
+| 4. Relatório | Gera um .docx (item, situação, o que foi encontrado, como corrigir, seção do manual) | na hora |
 
 Situações: 🔴 **Ajustar** (erro claro) · 🟡 **Conferir** (o programa não tem certeza: o bibliotecário confere) · 🟢 **OK**.
 
@@ -127,7 +131,7 @@ Conclusão de Curso apresentado…") ou da referência do resumo, e a norma muda
 | Base | Diretrizes USP (ABNT) aplicadas ao TCC | **template oficial da EESC** (`assets/modelos/`) + Diretrizes USP |
 | Versão original/corrigida | não confere | confere |
 | Declaração de uso de IA generativa | só se existir (confere as opções) | obrigatória |
-| Fonte da citação longa (correção) | 10 | 11, como no template |
+| Fonte da citação longa | 10 | 11, como no template |
 | Referência do trabalho acima do resumo | "Trabalho de Conclusão de Curso (Graduação)" | "Tese (Doutorado)" / "Dissertação (Mestrado)" coerente com a folha de rosto |
 
 Conferências do template (categoria **Folha de rosto e pré-textuais**), para os dois tipos quando se aplicam:
@@ -183,13 +187,9 @@ Nem todo trabalho usa o template ou os estilos do Word. Estas conferências não
 - **Sumário:** não lista resumo, listas, agradecimentos...; "Índice" usado no lugar de "Sumário".
 - **Referências:** ano posterior ao atual (provável erro de digitação).
 
-A correção automática (grupo *Espaços duplos, espaço antes da pontuação e títulos de seção*) corrige espaços duplos, espaço antes da
-pontuação, ponto final no título, espaço depois do número e alinhamento dos títulos numerados, sem mudar
-nenhuma palavra.
-
 ## Normas: padrão EESC, normas próprias e regras extras
 
-A verificação e a correção seguem uma **norma**. Há duas prontas da EESC (TCC e dissertação/tese). Na barra
+A verificação segue uma **norma**. Há duas prontas da EESC (TCC e dissertação/tese). Na barra
 lateral, em **📐 Norma usada**, escolha outra norma ou clique em **✏️ Criar ou editar norma**:
 
 - **Valores:** margens, fonte e entrelinhas do texto, citação longa (recuo, fonte, entrelinhas), fonte das
@@ -263,77 +263,45 @@ Cada tabela do Word é identificada e marcada com um selo no documento:
 
 Também confere: título acima (não abaixo), numeração sequencial (tabelas e quadros separados), menção no texto
 ("conforme a Tabela 2"), lista de tabelas/quadros a partir de 5 itens, e citações escritas dentro das células.
-Células podem ser editadas com duplo clique. As correções automáticas movem o título para cima, ajustam o
-formato do título, tiram traços verticais de tabelas, fecham bordas de quadros, repetem o cabeçalho em tabelas
-longas e deixam a fonte em tamanho 10.
 
 ## Visual
 
 - **Modo escuro:** botão 🌙/☀️ no canto do topo. Sem escolha manual, o app segue o tema do Windows.
   As folhas do documento continuam brancas, como papel.
 - **Tela cheia:** com a barra de configurações fechada, o conteúdo ocupa toda a largura.
-- **Recarregar a página (F5) não perde o trabalho:** o documento aberto, as correções e a revisão por IA
+- **Recarregar a página (F5) não perde o trabalho:** o documento aberto e a revisão por IA
   voltam sozinhos (ficam na memória por até 8 h no app interno e 1 h no site público). *Fechar* apaga.
 
-## Área de trabalho (ver e editar o documento)
+## Visualizador (somente leitura)
 
-- **À esquerda, "Pontos a revisar"**: problemas por categoria, com filtros (Ajustar / Conferir / OK) e busca.
-  Clique num ponto: o documento rola até o trecho e o marca em **negrito** com destaque amarelo. Quando o
-  problema aparece em vários lugares, use ‹ › para ir de um a outro. Problemas de margem/paginação mostram
-  a área de texto de cada folha.
-- **À direita, o documento** em folhas A4 com as margens reais do arquivo, imagens, tabelas e alterações
-  controladas (verde = inserido, vermelho = apagado). Zoom e "Mostrar margens" na barra superior.
-- **Editar**: duplo clique num parágrafo (ou no lápis ao lado). Salvar (Ctrl+Enter) grava no .docx só as
-  palavras que mudaram, como alteração controlada, e o documento é verificado de novo na hora.
-  Tabelas e trechos com campos/links/quebras são editados no Word.
-- **Desfazer** volta a última ação; **Original** volta ao arquivo enviado.
-- **Três arquivos para salvar**:
+O trabalho aparece como num leitor de PDF: dá para ler, procurar e selecionar texto, mas **não dá para editar**.
 
-  | Botão | O que é | Para quê |
-  |---|---|---|
-  | Documento revisado | já corrigido, com as mudanças de texto marcadas (controle de alterações) | o aluno aceita/rejeita cada correção |
-  | Versão limpa | o mesmo, com tudo aceito, sem marcações | arquivo final pronto |
-  | Original com apontamentos | o arquivo do aluno **sem correções**, com comentários do Word na margem em cada problema (o que está errado, como corrigir, seção das Diretrizes) e o trecho em amarelo | o próprio aluno faz as correções |
+- **Páginas reais**: se o arquivo foi salvo no Word, as páginas seguem a paginação gravada pelo Word (a página 12
+  daqui é a página 12 do aluno, inclusive os versos em branco). Arquivos de outros programas são paginados pela
+  altura do conteúdo. Embaixo de cada folha aparece "Página N de T".
+- **Todas as marcações ficam à vista**: trecho realçado em vermelho (*Ajustar*) ou amarelo (*Conferir*), ou uma
+  barra colorida na margem quando o problema vale para o parágrafo ou a tabela inteira. Cada ponto tem um
+  **balão numerado** na margem direita, na ordem do texto.
+- **Clique numa marcação ou balão**: abre o que está errado, como corrigir e a seção das Diretrizes.
+- **À esquerda, "Pontos marcados"**: a lista com filtros (Ajustar / Conferir / OK, que também escondem as
+  marcações), busca e ordem por tema ou pelo texto. Cada item mostra o número e a página; clicar leva até o
+  trecho, e ‹ › passa pelas ocorrências. O botão ☰ esconde a lista para ler em tela cheia.
+- **Barra de ferramentas**: página atual (digite um número e Enter para ir), zoom (− +, *Largura*, *Página*),
+  **Procurar no texto** (Ctrl+F; Enter vai para o próximo), **Marcações** (liga/desliga os realces),
+  **Margens** (mostra a área de texto de cada folha) e 🖨 **imprimir ou salvar em PDF com as marcações**.
+- Alterações controladas que o aluno deixou no arquivo aparecem em verde (inserido) e vermelho (apagado).
 
-  Nos apontamentos, problemas de formatação que valem para o texto todo (entrelinhas, fonte, citações longas,
-  negrito/alinhamento das referências) recebem um comentário só, com a dica de corrigir tudo pelo estilo do Word.
-  Problemas gerais (margens, paginação, elementos ausentes) ficam num comentário no início do documento.
-- Correções automáticas, IA e relatório ficam nas abas abaixo da área de trabalho e atuam sobre o mesmo
-  documento.
+## O que entregar ao aluno
 
-## Correções automáticas
-
-Na aba **Correções automáticas**, o app aplica no documento de trabalho as correções que podem ser feitas sem entender o conteúdo:
-
-| Grupo | O que corrige |
+| Botão | O que é |
 |---|---|
-| Margens e papel | 3/2/3/2 cm em todas as seções, A4, medianiz incorporada à margem esquerda |
-| Texto | Fonte 12 e entrelinhas 1,5 no corpo; citações longas com recuo 4 cm, fonte 10, espaço simples, sem aspas |
-| Títulos | Remove ponto/hífen após o número ("2. MÉTODO" → "2 MÉTODO"); seção primária em nova página; títulos sem número centralizados; "REFERÊNCIAS BIBLIOGRÁFICAS" → "REFERÊNCIAS" |
-| Palavras-chave | Rótulo "Palavras-chaves"/"Palavras chave" → "Palavras-chave"; termos separados por ponto e finalizados por ponto |
-| Figuras e tabelas | "Figura 1 – ..." com travessão; título movido para cima da imagem; fonte em tamanho 10; tabela sem traços verticais |
-| Alíneas | Minúscula no início; ";" e "." no final |
-| Citações | (SILVA, 2020) → (Silva, 2020) para autores pessoais |
-| Referências | Sobrenome em maiúsculas; "2ª edição" → "2. ed."; "pp." → "p."; "In:"; "Disponível em:"; "Acesso em: 5 set. 2019"; "mai." → "maio"; ponto final; espaço simples; alinhamento à esquerda; referência quebrada em várias linhas unida num só parágrafo; ordem alfabética pelo autor (mesmo autor mantém a ordem); uma linha em branco entre elas |
-| Sugestões da IA (opcional) | Substitui a referência pela versão sugerida pela IA |
+| **⬇ Arquivo com comentários** | O .docx do aluno **exatamente como foi enviado**, com um comentário do Word na margem em cada problema (o que está errado, como corrigir, seção das Diretrizes) e o trecho realçado em amarelo. Nenhuma palavra muda. |
+| **⬇ Baixar relatório** (aba Relatório) | Resumo em .docx: elementos do trabalho e pontos por categoria, com como corrigir e a seção da norma. Aceita observações da Biblioteca. |
 
-- Mudanças de **texto** entram no **controle de alterações** do Word, com autor "Biblioteca EESC (verificador)":
-  o aluno ou o bibliotecário aceita ou rejeita uma a uma em Revisão > Aceitar/Rejeitar. Dá para desligar essa opção.
-- Mudanças de **formatação** são aplicadas direto.
-- **Não é corrigido automaticamente** (depende do autor): resumo fora de 150–500 palavras, fonte de figura
-  faltando, citação sem referência, página em citação direta, negrito do título nas referências, renumeração
-  de seções (o texto pode citar "ver seção 2.3"), paginação e quebras de seção.
-- **Revisão dupla:** o botão faz uma 1ª passada, analisa o documento de novo e faz uma 2ª passada (que pega o
-  que só aparece depois da primeira e confirma que não sobrou nada). Cada passada só é mantida se:
-  1. **o texto do aluno estiver íntegro** — o app compara as palavras antes e depois; só podem mudar as previstas
-     (ex.: "edição" → "ed.", nomes de meses); se qualquer outra palavra sumir ou surgir, a passada é desfeita;
-  2. **as pendências não aumentarem**.
-  O resultado de cada passada aparece na aba (correções, pendências antes → depois, texto preservado).
-- Citações longas: só é tratado como citação o parágrafo recuado que tem sinal de citação (chamada com ano,
-  fonte menor, aspas ou espaço simples). Listas e etapas recuadas ("Etapa 1: ...") não são alteradas; aparecem
-  como "Conferir".
-- Depois de corrigir, o app verifica de novo e mostra o antes/depois e o que ficou para o autor. O relatório
-  passa a incluir a lista das alterações aplicadas.
+Problemas de formatação que valem para o texto todo (entrelinhas, fonte, citações longas, negrito/alinhamento
+das referências) recebem um comentário só, com a dica de corrigir tudo pelo estilo do Word. Problemas gerais
+(margens, paginação, elementos ausentes) ficam num comentário no início do documento. Depois que o aluno
+corrigir, basta enviar o arquivo novo para conferir de novo.
 
 ### Como a detecção evita erros
 
@@ -392,17 +360,18 @@ verificador/elementos.py    cada elemento: aparece, formatação e conteúdo ver
 verificador/tipografia.py   verificações que não dependem do modelo (títulos, legendas, cor, espaços, siglas...)
 assets/modelos/             template EESC de dissertação/tese (para baixar no app)
 verificador/visualizacao.py documento em HTML (folhas A4) e localização dos problemas
-verificador/edicao.py       edição de parágrafos/células e aceitar alterações
-componentes/area_trabalho/  área de trabalho (lista de problemas + documento)
+verificador/texto.py        leitura do texto visível dos parágrafos (somente leitura)
+componentes/area_trabalho/  visualizador somente leitura (lista de pontos + páginas com marcações)
 desktop.py                  janela própria do aplicativo
 verificador/ia_local.py     prompts e modelos de referência por tipo (usados por todos os provedores)
 verificador/ia_provedores.py chamadas ao Ollama, Gemini, OpenAI, Claude e compatíveis
 verificador/configuracao.py config.json, chaves e senhas
+verificador/cache.py        aceleração (guarda leituras repetidas; não muda nenhum resultado)
 servidor.py                 servidor da biblioteca (rede) e, com --publico, o site público + túnel
 publicar.ps1 / publicar.bat site público na internet (Tailscale, Cloudflare ou túnel rápido)
 despublicar.bat             tira o site público do ar
 verificador/relatorio.py    relatório .docx
-tests/                      testes automatizados (pytest)
+tests/                      testes automatizados (pytest): regras, robustez, cache e retrato dos resultados
 ```
 
 Para atualizar quando sair nova edição das Diretrizes: regras em `estrutura.py` e `referencias.py`;

@@ -8,9 +8,8 @@ Cada tabela do Word é classificada como:
 import re
 from dataclasses import dataclass, field
 
-from docx.oxml.ns import qn
-
 from . import docx_util as du
+from .cache import qn
 from .documento import chave
 from .modelo import AJUSTAR, OK, VERIFICAR, Achado
 
@@ -21,7 +20,7 @@ LINHAS_LONGA = 25
 
 
 def _texto_tc(tc):
-    from .correcao import texto_atual
+    from .texto import texto_atual
     return "\n".join(texto_atual(p) for p in tc.iter(qn("w:p"))).strip()
 
 
@@ -121,7 +120,7 @@ def analisar_tabelas(d):
         for pos, viz in (("acima", _vizinho_txt(d, b.i, -1)), ("abaixo", _vizinho_txt(d, b.i, +1))):
             if viz is not None:
                 m = RE_LEG.match(viz.texto)
-                if m and "\t" not in viz.obj.text:
+                if m and "\t" not in viz.bruto:
                     info.legenda, info.leg_tipo, info.leg_num, info.leg_sep = viz, m.group(1), m.group(2), m.group(3)
                     info.leg_pos = pos
                     break
@@ -186,7 +185,6 @@ def verificar(d):
             continue
         if t.leg_pos == "abaixo":
             reg("abaixo", t, t.legenda.texto)
-        esperado = "-" if t.leg_tipo == "Tabela" else "–"
         if t.leg_sep not in ("-", "–", "—"):
             reg("formato", t, t.legenda.texto)
         elif t.leg_tipo == "Quadro" and t.leg_sep == "-":

@@ -1,0 +1,25 @@
+# Lint do projeto (roda no GitHub Actions, job "Qualidade do código").
+# Só regras que pegam erro de verdade ou deixam o código uniforme; nada de estilo pessoal.
+#   pip install ruff
+#   ruff check .            (aponta)
+#   ruff check . --fix      (corrige o que for automático, ex.: ordem dos imports)
+target-version = "py310"
+line-length = 120
+
+[lint]
+select = [
+  "E",   # erros de estilo que viram bug (comparações, sintaxe)
+  "F",   # pyflakes: nomes indefinidos, imports e variáveis sem uso
+  "W",   # espaços no fim da linha
+  "B",   # bugbear: padrões que costumam ser bug
+  "I",   # ordem dos imports
+  "UP",  # sintaxe moderna do Python 3.10+
+]
+ignore = [
+  "E501",  # linhas longas: mensagens e regex ficam inteiras
+  "E731",  # lambdas curtas atribuídas a nomes
+  "B905",  # zip() sem strict=
+]
+
+[lint.isort]
+known-first-party = ["verificador"]

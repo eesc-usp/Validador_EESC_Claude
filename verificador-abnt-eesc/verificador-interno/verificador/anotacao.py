@@ -1,19 +1,22 @@
-"""Versão original com apontamentos: o .docx do aluno SEM correções, com um comentário do Word em cada
-ponto a corrigir (o que está errado, como corrigir e a seção das Diretrizes) e o trecho destacado em amarelo.
+"""Original com apontamentos: o .docx do aluno como ele enviou, com um comentário do Word em cada ponto a
+revisar (o que está errado, como corrigir e a seção das Diretrizes) e o trecho destacado em amarelo.
+
+O texto do aluno não é alterado: só entram os comentários e o realce. Quem corrige é o próprio aluno.
 """
 import io
-import re
 from copy import deepcopy
 
-from docx import Document
 from docx.enum.text import WD_COLOR_INDEX
-from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 
-from .correcao import _runs, _set_texto, _simples, _texto_run, texto_atual
+from .cache import qn
 from .documento import Documento
 from .modelo import AJUSTAR, OK, VERIFICAR
+from .texto import runs_visiveis as _runs
+from .texto import texto_atual
+from .texto import texto_run as _texto_run
 from .visualizacao import serializar
 
 AUTOR = "Biblioteca EESC (verificador)"
@@ -35,6 +38,19 @@ COLETIVOS = {
 }
 LIMITE_COLETIVO = 6
 ROTULO = {AJUSTAR: "AJUSTAR", VERIFICAR: "CONFERIR"}
+
+
+def _simples(r, p):
+    return r.getparent() is p and all(ch.tag in (qn("w:rPr"), qn("w:t")) for ch in r)
+
+
+def _set_texto(r, s):
+    for t in r.findall(qn("w:t")):
+        r.remove(t)
+    t = OxmlElement("w:t")
+    t.set(qn("xml:space"), "preserve")
+    t.text = s
+    r.append(t)
 
 
 def _isolar(p_el, ini, fim):

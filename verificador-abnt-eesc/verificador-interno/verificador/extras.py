@@ -7,10 +7,9 @@
 """
 import re
 
-from . import docx_util as du
 from . import perfil as PF
 from .documento import RE_APENDICE, TITULOS_SEM_NUMERO, chave
-from .estrutura import RE_ILU, RE_SECAO, RE_SUMARIO, RE_TAB, _amostra, _candidato_titulo
+from .estrutura import RE_ILU, RE_SUMARIO, RE_TAB, _amostra, _candidato_titulo
 from .modelo import AJUSTAR, OK, VERIFICAR, Achado
 
 CAT_CRUZ = "Sumário e listas"
@@ -39,7 +38,7 @@ def _secao_pre(d, titulo_re):
             continue
         k = chave(b.texto)
         if (k in TITULOS_SEM_NUMERO or k.startswith("LISTA DE")) and not RE_SUMARIO.search(b.texto) \
-                and "\t" not in b.obj.text:
+                and "\t" not in b.bruto:
             break
         if d.i_intro is not None and b.i >= d.i_intro:
             break
@@ -56,7 +55,7 @@ def sumario(d):
     entradas = {}
     sem_num = set()
     for b in linhas:
-        t = b.obj.text.strip() or b.texto
+        t = b.bruto.strip() or b.texto
         m = re.match(r"^(\d{1,2}(?:\.\d{1,2}){0,6})\.?\s*[-–—:]?\s*(.+)$", t)
         if m:
             entradas[m.group(1)] = (_limpo(m.group(2)), b)
@@ -177,7 +176,7 @@ def listas(d):
                                                                                      "ilustrações")
         entradas = {}
         for b in linhas:
-            t = b.obj.text.strip() or b.texto
+            t = b.bruto.strip() or b.texto
             m = re.match(r"^(Figura|Quadro|Gr[áa]fico|Tabela|Fotografia|Mapa|Esquema|Fluxograma|Desenho|"
                          r"Organograma|Planta|Imagem)\s+(\d+(?:\.\d+)?)\s*[-–—:.]?\s*(.*)$", t, re.I)
             if m:

@@ -1,12 +1,11 @@
-"""Normas personalizadas, integridade do texto, conferências de consistência e template EESC."""
+"""Normas personalizadas, conferências de consistência e template EESC."""
 import io
 
+from conftest import EXEMPLOS, TEMPLATE
 from docx import Document
 
-from conftest import EXEMPLOS, TEMPLATE
 from verificador import OK, analisar
 from verificador import perfil as PF
-from verificador.correcao import integridade
 from verificador.documento import Documento
 from verificador.trabalho import detectar
 
@@ -34,19 +33,6 @@ def test_sanear_ignora_valores_invalidos():
 def test_padroes_eesc_sem_diferencas():
     assert PF.eh_padrao(PF.EESC) and PF.eh_padrao(PF.EESC_POS)
     assert PF.EESC["tipo"] == "tcc" and PF.EESC_POS["tipo"] == "pos"
-
-
-def test_integridade_detecta_palavra_apagada():
-    dados = (EXEMPLOS / "exemplo_com_erros.docx").read_bytes()
-    d = Document(io.BytesIO(dados))
-    for p in d.paragraphs:
-        if len(p.text) > 80:
-            p.runs[0].text = p.runs[0].text.replace(p.runs[0].text.split()[2], "", 1)
-            break
-    buf = io.BytesIO()
-    d.save(buf)
-    ok, _ = integridade(dados, buf.getvalue())
-    assert not ok
 
 
 def test_consistencia_ano_titulo_e_mencoes():

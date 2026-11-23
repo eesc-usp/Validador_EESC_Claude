@@ -1,10 +1,12 @@
 # Arquitetura do verificador
 
 ```
-.docx ──► Documento (documento.py) ──► verificações ──► Achado[] ──► interface / relatório / comentários
-                                          │                              │
-                       perfil de norma ───┘                              └──► correção automática (correcao.py)
-                       (perfil.py)                                             revisão dupla + integridade
+.docx ──► Documento (documento.py) ──► verificações ──► Achado[] ──► visualizador (somente leitura)
+                                          │                         ├─► arquivo do aluno com comentários
+                       perfil de norma ───┘                         └─► relatório .docx
+                       (perfil.py)
+
+O verificador nunca altera o trabalho: só lê, aponta e gera uma cópia com comentários.
 ```
 
 ## Fluxo
@@ -22,17 +24,19 @@
    | `trabalho.py` | TCC × dissertação/tese e pré-textuais do template EESC |
    | `elementos.py` | cada elemento: aparece, formatação, conteúdo verdadeiro (consistência) + tabela-resumo |
 3. **`perfil.py`** define a norma em uso (padrões EESC de TCC e de dissertação/tese, normas salvas em `perfis/`).
-   As verificações leem `perfil.atual()`; `analisar(arquivo, perfil)` e `corrigir_duplo(..., perfil)` ativam a
-   norma com um *context manager*.
-4. **Saídas**: `visualizacao.py` (folhas A4 em HTML + localização dos achados), `anotacao.py` (original com
-   comentários do Word), `relatorio.py` (relatório .docx), `correcao.py` (versão corrigida com controle de
-   alterações; duas passadas com conferência de integridade das palavras), `edicao.py` (edição de parágrafos
-   pela área de trabalho).
+   As verificações leem `perfil.atual()`; `analisar(arquivo, perfil)` ativa a norma com um *context manager*.
+4. **Saídas**: `visualizacao.py` (páginas em HTML, seguindo a paginação gravada pelo Word, + localização dos
+   achados), `anotacao.py` (cópia do arquivo com comentários do Word; o texto não muda) e `relatorio.py`
+   (relatório .docx). `texto.py` lê o texto visível de cada parágrafo.
 5. **IA** (`ia_provedores.py`, `ia_local.py`): revisão das referências em lotes (Ollama, Gemini, OpenAI,
    Anthropic, compatíveis) e leitura de manuais para criar normas.
+6. **`cache.py`**: aceleração transparente (estilos guardados, XPath compilado e, durante a análise, leituras
+   reaproveitadas entre as verificações). Ver `docs/desenvolvimento.md`.
 
 ## Interface
-- `app.py` (Streamlit): envio, escolha TCC × pós, norma, área de trabalho, abas de elementos, correções, IA e relatório.
-- `componentes/area_trabalho/index.html`: componente próprio (lista de achados + documento; clique leva ao trecho).
+- `app.py` (Streamlit): envio, escolha TCC × pós, norma, visualizador, download do arquivo comentado e abas de
+  elementos, IA e relatório.
+- `componentes/area_trabalho/index.html`: visualizador somente leitura (lista de achados + páginas com todas as
+  marcações e balões numerados, ir para página, zoom, procurar, imprimir/PDF). Não devolve nada ao Python.
 - Modos: navegador local, **desktop** (`desktop.py`, pywebview), **servidor** na rede (`servidor.py`) e **site
   público** (`servidor.py --publico` + túnel, `publicar.ps1`).

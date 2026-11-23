@@ -6,9 +6,9 @@ from datetime import date
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
 
+from .cache import qn
 from .modelo import AJUSTAR, OK, VERIFICAR
 
 LARGURAS = (4.2, 1.9, 5.6, 5.3)  # cm; soma = largura útil A4 com margens padrão
@@ -29,7 +29,7 @@ def _texto_com_negrito(par, texto):
             par.add_run(parte).bold = (i % 2 == 1)
 
 
-def gerar(achados, nome_arquivo, incluir_ok=False, observacao="", alteracoes=None):
+def gerar(achados, nome_arquivo, incluir_ok=False, observacao=""):
     doc = Document()
     for sec in doc.sections:
         sec.page_width, sec.page_height = Cm(21), Cm(29.7)
@@ -38,7 +38,7 @@ def gerar(achados, nome_arquivo, incluir_ok=False, observacao="", alteracoes=Non
     estilo.font.name = "Arial"
     estilo.font.size = Pt(10)
 
-    t = doc.add_heading("Relatório de verificação de normalização", level=1)
+    doc.add_heading("Relatório de verificação de normalização", level=1)
     doc.add_paragraph(f"Biblioteca da Escola de Engenharia de São Carlos – USP\n"
                       f"Arquivo: {nome_arquivo}\nData: {date.today():%d/%m/%Y}\n"
                       "Referência: Diretrizes para apresentação de dissertações e teses da USP: parte I (ABNT), "
@@ -53,7 +53,7 @@ def gerar(achados, nome_arquivo, incluir_ok=False, observacao="", alteracoes=Non
     resumo = next((a for a in achados if a.tabela and a.item.startswith("Elementos: aparece")), None)
     if resumo:
         doc.add_heading("Elementos do trabalho", level=2)
-        lin = [l for l in resumo.tabela if not l["Aparece"].startswith("—")]
+        lin = [x for x in resumo.tabela if not x["Aparece"].startswith("—")]
         cols = list(lin[0].keys()) if lin else []
         if cols:
             tb = doc.add_table(rows=1, cols=len(cols))
@@ -61,10 +61,10 @@ def gerar(achados, nome_arquivo, incluir_ok=False, observacao="", alteracoes=Non
             for c, titulo in zip(tb.rows[0].cells, cols):
                 c.text = ""
                 c.paragraphs[0].add_run(titulo).bold = True
-            for l in lin:
+            for linha in lin:
                 cel = tb.add_row().cells
                 for c, k in zip(cel, cols):
-                    c.text = str(l[k])
+                    c.text = str(linha[k])
                     for r in c.paragraphs[0].runs:
                         r.font.size = Pt(8)
         achados = [a for a in achados if a is not resumo]
@@ -108,28 +108,9 @@ def gerar(achados, nome_arquivo, incluir_ok=False, observacao="", alteracoes=Non
             for c, larg in zip(linha.cells, LARGURAS):
                 c.width = Cm(larg)
 
-    if alteracoes:
-        doc.add_heading("Alterações já aplicadas na versão corrigida", level=2)
-        doc.add_paragraph("O arquivo corrigido enviado junto traz estas mudanças. As de texto aparecem no controle "
-                          "de alterações do Word (Revisão > Aceitar/Rejeitar).")
-        tab = doc.add_table(rows=1, cols=2)
-        tab.style = "Table Grid"
-        for c, titulo in zip(tab.rows[0].cells, ("Grupo", "Alteração")):
-            c.text = ""
-            c.paragraphs[0].add_run(titulo).bold = True
-        for item in alteracoes:
-            linha = tab.add_row().cells
-            linha[0].text = item["Grupo"]
-            linha[1].text = item["Alteração"]
-        tab.autofit = False
-        for col, larg in zip(tab.columns, (5.0, 12.0)):
-            col.width = Cm(larg)
-        for linha in tab.rows:
-            linha.cells[0].width, linha.cells[1].width = Cm(5.0), Cm(12.0)
-
     doc.add_paragraph()
     nota = doc.add_paragraph("Verificação automática de apoio. Itens marcados como 'Verificar' precisam de "
-                             "conferência manual. Sugestões geradas por IA devem ser conferidas antes de aplicadas. "
+                             "conferência manual. Sugestões geradas por IA devem ser conferidas. "
                              "Este relatório não substitui as Diretrizes USP nem as orientações do Programa.")
     nota.runs[0].font.size = Pt(8)
     nota.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY

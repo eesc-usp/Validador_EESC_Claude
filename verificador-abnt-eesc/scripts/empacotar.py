@@ -11,7 +11,7 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
 DIST = RAIZ / "dist"
-IGNORAR = ["__pycache__", "*.pyc", ".pytest_cache", "config.json", "perfis", "publico.json", "compartilhar",
+IGNORAR = ["__pycache__", "*.pyc", ".pytest_cache", ".ruff_cache", "config.json", "perfis", "publico.json", "compartilhar",
            "ferramentas", "*.log", "*.pid", "*.parar", "*.tmp", "~$*", ".venv"]
 
 

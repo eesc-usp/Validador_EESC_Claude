@@ -16,10 +16,10 @@ import re
 from collections import Counter
 
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
 
 from . import docx_util as du
 from . import perfil as PF
+from .cache import qn
 from .documento import chave
 from .estrutura import RE_ILU, RE_TAB, _amostra, _candidato_titulo
 from .modelo import AJUSTAR, OK, VERIFICAR, Achado
@@ -38,7 +38,7 @@ def _titulo(d, rx):
     """Primeiro parágrafo curto, em qualquer lugar do arquivo, cujo texto (sem número) é o título rx."""
     r = re.compile(rf"^(\d+(\.\d+)*\.?\s*[-–]?\s*)?({rx})\s*:?$")
     for b in _pars(d):
-        if len(b.texto) <= 90 and "\t" not in b.obj.text and r.match(chave(b.texto).strip()):
+        if len(b.texto) <= 90 and "\t" not in b.bruto and r.match(chave(b.texto).strip()):
             return b
     return None
 
@@ -51,7 +51,7 @@ def _ate_proximo_titulo(d, b, limite=80):
             continue
         k = chave(x.texto).strip()
         if len(k) <= 80 and re.fullmatch(r"[A-Z0-9 \-–:.]{5,}", k) and k == k.upper() and \
-                not re.match(r"^[A-Z][A-Z' \-]+,\s", x.texto) and "\t" not in x.obj.text and out:
+                not re.match(r"^[A-Z][A-Z' \-]+,\s", x.texto) and "\t" not in x.bruto and out:
             break
         out.append(x)
     return out
@@ -130,7 +130,7 @@ def consistencia(d):
             probs.append(f"o título “{ref['titulo'][:60]}” não aparece igual na capa/folha de rosto")
         anos_pre = set()
         for b in pre:   # linhas que são só o ano, ou "São Carlos, 2025" (capa, folha de rosto)
-            for ln in (b.obj.text or b.texto).split("\n"):
+            for ln in (b.bruto or b.texto).split("\n"):
                 m = re.fullmatch(r"\s*(?:S[ãa]o Carlos\s*[,\-–]?\s*)?((?:19|20)\d{2})\.?\s*", ln)
                 if m:
                     anos_pre.add(m.group(1))
@@ -240,7 +240,7 @@ def siglas(d):
         return []
     entradas = []
     for x in _ate_proximo_titulo(d, tb, 200):
-        m = re.match(r"^\s*([A-Za-zÀ-ÿ0-9&./\-]{2,15})\s*(?:\t+|\s{2,}|\s[-–—:]\s)\s*(\S.*)$", x.obj.text or x.texto)
+        m = re.match(r"^\s*([A-Za-zÀ-ÿ0-9&./\-]{2,15})\s*(?:\t+|\s{2,}|\s[-–—:]\s)\s*(\S.*)$", x.bruto or x.texto)
         if m:
             entradas.append((m.group(1).strip(), x))
     if not entradas:
@@ -289,14 +289,14 @@ def paginas_sumario(d):
             continue
         entradas = []
         for x in _ate_proximo_titulo(d, tb, 300):
-            t = x.obj.text or x.texto
+            t = x.bruto or x.texto
             m = re.match(r"^(.*?)(?:\.{2,}|…+|\t)+\s*(\d{1,4})\s*$", t.strip())
             if m:
                 entradas.append((m.group(1).strip(), int(m.group(2)), x))
         if len(entradas) < 2:
             continue
         alvo = []
-        for rot, num_pag, x in entradas:
+        for rot, num_pag, _x in entradas:
             k = chave(rot).strip()
             achado = None
             mnum = re.match(r"^(\d{1,2}(?:\.\d{1,2}){0,6})\.?\s+(.*)$", k)
@@ -368,7 +368,7 @@ def epigrafe_e_errata(d):
 def catalogo():
     """[(nome, regex do título ou None, obrigatoriedade, itens de formatação, itens de conteúdo)]."""
     P = PF.atual()
-    EL, pos = P["elementos"], P.get("tipo") == "pos"
+    EL = P["elementos"]
     o = lambda flag, padrao=OBRIG: padrao if EL.get(flag, True) else OPC
     return [
         ("Capa", "@capa", o("capa"), ["Capa: instituição, local e ano"],

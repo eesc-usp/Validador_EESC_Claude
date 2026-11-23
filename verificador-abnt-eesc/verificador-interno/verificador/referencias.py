@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
+from . import cache as _cache
 from . import docx_util as du
 from . import perfil as PF
 from .documento import sem_acento
@@ -69,11 +70,11 @@ CONECTIVOS = {
     "porém", "assim", "portanto", "completando", "segundo", "conforme", "para", "como", "ainda", "já", "então",
     "logo", "além", "também", "contudo", "entretanto", "todavia", "ademais", "inclusive", "finalmente", "enfim",
     "desta", "dessa", "deste", "desse", "neste", "nesse", "nesta", "nessa", "em", "de", "por", "com", "sobre",
-    "segundo", "ou", "e", "o", "a", "os", "as", "um", "uma", "no", "na", "nos", "nas", "do", "da", "dos", "das",
+    "ou", "e", "o", "a", "os", "as", "um", "uma", "no", "na", "nos", "nas", "do", "da", "dos", "das",
     "mas", "pois", "quando", "onde", "isso", "isto", "aqui", "dessa forma", "desse modo", "adicionalmente",
     "resumindo", "concluindo", "complementando", "analogamente", "similarmente", "igualmente", "outrossim",
     "posteriormente", "anteriormente", "recentemente", "atualmente", "hoje", "nesse sentido", "de acordo",
-    "conforme", "consoante", "acrescenta", "afirma", "explica", "destaca", "ressalta", "observa", "cita",
+    "consoante", "acrescenta", "afirma", "explica", "destaca", "ressalta", "observa", "cita",
 }
 
 
@@ -100,10 +101,19 @@ def _primeiro_autor(s):
     return norm(s)
 
 
+class ListaCitacoes(list):
+    """Lista de citações que também guarda as chamadas com 'e' ou ';' entre autores nos parênteses."""
+
+    def __init__(self):
+        super().__init__()
+        self.e_parenteses = []
+        self.pv_parenteses = []
+
+
 def extrair_citacoes(d, refs=None):
-    cits = []
-    e_parenteses = extrair_citacoes.e_parenteses = []
-    pv_parenteses = extrair_citacoes.pv_parenteses = []
+    cits = ListaCitacoes()
+    e_parenteses = cits.e_parenteses
+    pv_parenteses = cits.pv_parenteses
     nomes_refs = None
     if refs:
         nomes_refs = {tok for r in refs for tok in r.tokens[:12] if len(tok) > 2}
@@ -111,7 +121,7 @@ def extrair_citacoes(d, refs=None):
         t = b.texto
         aspas = [(q.start(), q.end()) for q in re.finditer(r"[\"“][^\"”]{15,}[\"”]", t)]
 
-        def junto_de_aspas(ini, fim, narrativa=False):
+        def junto_de_aspas(ini, fim, narrativa=False, aspas=aspas):
             # (Autor, ano) logo depois do fecha-aspas, ou "Autor (ano)," logo antes do abre-aspas
             return any(0 <= ini - qf <= 12 or (narrativa and 0 <= qi - fim <= 15) for qi, qf in aspas)
 
@@ -175,6 +185,11 @@ def classificar(t):
 
 
 def extrair_referencias(d):
+    """Referências da lista (linhas quebradas já juntadas). Durante a análise, calculadas uma vez."""
+    return list(_cache.memo(("referencias", d), lambda: _extrair_referencias(d)))
+
+
+def _extrair_referencias(d):
     refs = []
     for grupo in d.referencias_agrupadas():
         t = " ".join(b.texto for b in grupo)
@@ -298,14 +313,14 @@ def verificar_citacoes(d, cits, refs):
                           [t[:120] for t in nao_citadas[:300]], blocos=nao_citadas_b))
     sep = PF.atual()["separador_parenteses"]
     if sep == ";":
-        e_par = list(dict.fromkeys(getattr(extrair_citacoes, "e_parenteses", [])))
+        e_par = list(dict.fromkeys(getattr(cits, "e_parenteses", [])))
         out.append(Achado(CAT_CIT, "Autores separados por ';' dentro dos parênteses", AJUSTAR if e_par else OK,
                           f"{len(e_par)} chamada(s) com 'e' entre autores" if e_par else "sem problemas",
                           "Entre parênteses, separe os autores por ponto e vírgula: (Bowersox; Closs, 2001). "
                           "Fora dos parênteses usa-se 'e': Bowersox e Closs (2001)." if e_par else "", "5.1",
                           e_par[:300]))
     elif sep == "e":
-        pv = list(dict.fromkeys(getattr(extrair_citacoes, "pv_parenteses", [])))
+        pv = list(dict.fromkeys(getattr(cits, "pv_parenteses", [])))
         out.append(Achado(CAT_CIT, "Autores separados por 'e' dentro dos parênteses", AJUSTAR if pv else OK,
                           f"{len(pv)} chamada(s) com ';' entre autores da mesma obra" if pv else "sem problemas",
                           "Pela norma escolhida, autores da mesma obra entre parênteses são ligados por 'e': "
@@ -377,7 +392,7 @@ def verificar_referencias(d, refs, numerico):
     for r in refs:
         t = r.texto
         pars = [b.obj for b in r.blocos]
-        reg = lambda k: p[k].append((t, r.i))
+        reg = lambda k, t=t, r=r: p[k].append((t, r.i))
         corpo = re.sub(r"^\[?\d+[\].]\s*", "", t) if numerico else t
         primeiro = re.split(r"[,.:]", corpo, maxsplit=1)[0]
         if primeiro.upper() != primeiro:

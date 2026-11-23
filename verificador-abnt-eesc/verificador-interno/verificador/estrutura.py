@@ -3,11 +3,10 @@ import re
 from collections import Counter, defaultdict
 
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
-
-from . import perfil as PF
 
 from . import docx_util as du
+from . import perfil as PF
+from .cache import qn
 from .documento import RE_APENDICE, TITULOS_SEM_NUMERO, chave
 from .modelo import AJUSTAR, OK, VERIFICAR, Achado, num
 
@@ -357,7 +356,7 @@ def secoes(d):
     pontuacao, profundos, sequencia, sem_texto, sem_pagina = [], [], [], [], []
     estilos = defaultdict(Counter)
     anterior = None
-    for k, (b, m) in enumerate(titulos):
+    for b, m in titulos:
         num, ponto, sep, titulo = m.groups()
         partes = [int(x) for x in num.split(".")]
         nivel = len(partes)
@@ -409,7 +408,7 @@ def secoes(d):
 def titulos_sem_indicativo(d):
     errados_num, nao_centralizados, ref_bib = [], [], []
     for b in d.paragrafos():
-        if not b.texto or "\t" in b.obj.text or len(b.texto) > 80:
+        if not b.texto or "\t" in b.bruto or len(b.texto) > 80:
             continue
         k = chave(b.texto)
         base = re.sub(r"^\d+(\.\d+)*\.?\s*[-–]?\s*", "", k)
@@ -502,7 +501,7 @@ def ilustracoes_tabelas(d):
             ant_q, prox_q = _vizinho(d, b.i, -1), _vizinho(d, b.i, +1)
             if (prox_q is not None and prox_q.tipo == "t") or (ant_q is not None and ant_q.tipo == "t"):
                 continue  # quadro feito com tabela do Word: verificado em tabelas.py
-        if m and "\t" not in b.obj.text:
+        if m and "\t" not in b.bruto:
             tipo, num, sep, _ = m.groups()
             if sep not in ("-", "–", "—"):
                 sep_ilu.append(b.texto)

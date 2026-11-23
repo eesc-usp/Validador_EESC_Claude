@@ -49,11 +49,14 @@ $RegraFw    = "Verificador ABNT (porta $Porta)"
 $Arquivos   = @("app.py", "requirements.txt", "VERSION", ".streamlit\config.toml",
                 "verificador\__init__.py", "verificador\documento.py", "verificador\docx_util.py",
                 "verificador\estrutura.py", "verificador\referencias.py", "verificador\ia_local.py",
-                "verificador\relatorio.py", "verificador\modelo.py", "verificador\correcao.py",
-                "verificador\visualizacao.py", "verificador\edicao.py", "componentes\area_trabalho\index.html",
+                "verificador\relatorio.py", "verificador\modelo.py", "verificador\texto.py",
+                "verificador\visualizacao.py", "componentes\area_trabalho\index.html",
                 "desktop.py", "assets\icone.ico", "requirements-desktop.txt", "servidor.py",
                 "verificador\ia_provedores.py", "verificador\configuracao.py", "verificador\tabelas.py", "verificador\anotacao.py", "publicar.ps1",
-                "verificador\perfil.py", "verificador\extras.py", "verificador\trabalho.py", "verificador\elementos.py", "verificador\tipografia.py")
+                "verificador\perfil.py", "verificador\extras.py", "verificador\trabalho.py", "verificador\elementos.py", "verificador\tipografia.py",
+                "verificador\cache.py")
+# arquivos de versoes antigas que nao fazem mais parte do app (a 3.0 nao corrige nem edita o trabalho)
+$Obsoletos  = @("verificador\correcao.py", "verificador\edicao.py")
 
 function Log([string]$msg, [string]$cor = "Gray") {
     Write-Host $msg -ForegroundColor $cor
@@ -75,6 +78,10 @@ function Ler-Json([string]$arq) {
 
 # ------------------------------------------------------------------ arquivos do app
 function Verificar-Arquivos {
+    foreach ($velho in $Obsoletos) {
+        $c = Join-Path $Pasta $velho
+        if (Test-Path $c) { Remove-Item $c -Force -ErrorAction SilentlyContinue; Ok "Removido arquivo antigo: $velho" }
+    }
     $faltando = @($Arquivos | Where-Object { -not (Test-Path (Join-Path $Pasta $_)) })
     if ($faltando.Count) {
         throw "Pasta do app incompleta. Faltam: $($faltando -join ', '). Copie a pasta inteira de novo."

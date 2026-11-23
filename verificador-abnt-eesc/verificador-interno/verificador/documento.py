@@ -1,19 +1,22 @@
 """Mapa do documento: blocos em ordem, regiões (pré-textual, textual, pós-textual)."""
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import lru_cache
 
 from docx import Document
-from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
 
+from . import cache
 from . import docx_util as du
+from .cache import qn
 
 
 def sem_acento(s):
     return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
 
 
+@lru_cache(maxsize=4096)  # ~600 textos distintos por trabalho; o limite segura a memória do servidor
 def chave(s):
     return re.sub(r"\s+", " ", sem_acento(s).upper()).strip()
 
@@ -25,6 +28,21 @@ class Bloco:
     obj: object
     texto: str = ""
     secao_word: int = 0  # índice da seção do Word (quebras de seção)
+    _bruto: str | None = field(default=None, repr=False, compare=False)
+
+    @property
+    def bruto(self):
+        """Texto do parágrafo como o Word o guarda (com tabulações e quebras de linha).
+
+        Durante a análise é lido uma vez só; fora dela é sempre lido ao vivo."""
+        if self.tipo != "p":
+            return ""
+        if self._bruto is not None:
+            return self._bruto
+        t = self.obj.text
+        if cache.ativo():
+            self._bruto = t
+        return t
 
 
 TITULOS_SEM_NUMERO = [
@@ -79,7 +97,7 @@ class Documento:
 
         Tolera o que é comum fora do modelo: pontuação no fim ("RESUMO:", "Introdução."),
         "CAPÍTULO 1 – INTRODUÇÃO", "Capítulo 1: Introdução" e minúsculas/acentos."""
-        if b.tipo != "p" or not b.texto or "\t" in b.obj.text or len(b.texto) > 120:
+        if b.tipo != "p" or not b.texto or "\t" in b.bruto or len(b.texto) > 120:
             return False
         k = chave(b.texto)
         if re.fullmatch(padrao, k):
@@ -94,7 +112,7 @@ class Documento:
         parecida ("INTRODUCÃO", "REFERENCIAS"). Guarda o achado em self.aproximados."""
         import difflib
         for b in self.blocos:
-            if b.tipo != "p" or not b.texto or "\t" in b.obj.text or len(b.texto) > 70:
+            if b.tipo != "p" or not b.texto or "\t" in b.bruto or len(b.texto) > 70:
                 continue
             if depois_de is not None and b.i <= depois_de:
                 continue
@@ -127,7 +145,7 @@ class Documento:
         fim = [b.i for b in self.blocos if self.i_refs is not None and b.i > self.i_refs
                and b.tipo == "p" and (RE_APENDICE.match(chave(b.texto))
                                       or chave(b.texto) in ("GLOSSARIO", "INDICE"))
-               and "\t" not in b.obj.text]
+               and "\t" not in b.bruto]
         self.i_fim_refs = fim[0] if fim else len(self.blocos)
 
     def regiao(self, i):
@@ -138,9 +156,15 @@ class Documento:
         return "textual"
 
     def paragrafos(self, regiao=None):
-        return [b for b in self.blocos if b.tipo == "p" and (regiao is None or self.regiao(b.i) == regiao)]
+        lista = cache.memo(("paragrafos", self, regiao), lambda: [
+            b for b in self.blocos if b.tipo == "p" and (regiao is None or self.regiao(b.i) == regiao)])
+        return list(lista)  # cópia: quem chama pode alterar a lista à vontade
 
     def achar_titulo(self, padrao, depois_de=None):
+        return cache.memo(("achar_titulo", self, padrao, depois_de),
+                          lambda: self._achar_titulo(padrao, depois_de))
+
+    def _achar_titulo(self, padrao, depois_de=None):
         for b in self.blocos:
             if depois_de is not None and b.i <= depois_de:
                 continue

@@ -7,9 +7,7 @@ from docx.shared import RGBColor
 
 from verificador import OK, analisar
 from verificador import perfil as PF
-from verificador.correcao import GRUPOS, corrigir_duplo
 from verificador.documento import Documento
-from verificador.edicao import aceitar_tudo
 
 LONGO = ("Este parágrafo descreve o trabalho realizado com bastante detalhe para que o verificador reconheça "
          "o texto corrido do documento e possa conferir a formatação. ")
@@ -55,11 +53,9 @@ def test_aponta_problemas_tipograficos():
         assert esperado in nomes, esperado
 
 
-def test_corrige_tipografia_sem_perder_texto():
+def test_comentarios_no_documento_fora_do_modelo():
+    from verificador import anotacao
     dados = documento_fora_do_modelo()
-    novo, log, _, passadas = corrigir_duplo(dados, list(GRUPOS), True, None, PF.EESC)
-    assert all(p["integra"] for p in passadas)
-    a, _ = analisar(io.BytesIO(aceitar_tudo(novo)), PF.EESC)
-    restantes = {x.item for x in a if x.status != OK}
-    assert "Sem espaços duplos entre palavras" not in restantes
-    assert "Título de seção sem ponto final" not in restantes
+    achados, _ = analisar(io.BytesIO(dados), PF.EESC)
+    _, n = anotacao.gerar(dados, achados)
+    assert n >= 5
