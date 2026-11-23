@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Visualizador</title>
+<style>
+  :root {
+    --azul: #1F4E79; --azul-claro: #E8F0F8; --borda: #E3E7ED; --texto: #1F2937; --suave: #6B7280;
+    --aj-bg: #FDE2E4; --aj-tx: #9B1C2C; --ve-bg: #FFF1C2; --ve-tx: #7A5600; --ok-bg: #DDF3E4; --ok-tx: #1E6B3A;
+    --aj: #D9475B; --ve: #E0A800; --ok: #2F9E5B;
+    --marca-aj: rgba(217, 71, 91, .17); --marca-ve: rgba(224, 168, 0, .22);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: "Source Sans Pro", "Segoe UI", system-ui, sans-serif;
+               color: var(--texto); background: transparent; }
+  #app { display: grid; grid-template-columns: 360px 1fr; height: 100%; border: 1px solid var(--borda);
+         border-radius: 14px; overflow: hidden; background: #fff; }
+  #app.lista-fechada { grid-template-columns: 0 1fr; }
+  #app.lista-fechada #lista { visibility: hidden; }
+  button { font-family: inherit; }
+
+  /* ---------------- painel de comentários */
+  #lista { display: flex; flex-direction: column; border-right: 1px solid var(--borda); background: #FAFBFC;
+           min-height: 0; min-width: 0; }
+  .topo { padding: 12px 14px 10px; border-bottom: 1px solid var(--borda); background: #fff; }
+  .topo h3 { margin: 0 0 8px; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .topo h3 .total { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--suave); }
+  .campo { width: 100%; padding: 7px 10px; border: 1px solid var(--borda); border-radius: 8px; font-size: 13px;
+           outline: none; background: #fff; color: var(--texto); }
+  .campo:focus { border-color: var(--azul); box-shadow: 0 0 0 3px var(--azul-claro); }
+  .filtros { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+  .filtro { border: 1px solid var(--borda); background: #fff; border-radius: 999px; padding: 3px 10px;
+            font-size: 12px; cursor: pointer; user-select: none; display: flex; gap: 5px; align-items: center; }
+  .filtro.ativo { border-color: var(--azul); background: var(--azul-claro); color: var(--azul); font-weight: 600; }
+  .ordem { margin-left: auto; font-size: 12px; color: var(--suave); display: flex; gap: 4px; align-items: center; }
+  .ordem select { border: 1px solid var(--borda); border-radius: 6px; font-size: 12px; padding: 2px 4px;
+                  background: #fff; color: var(--texto); }
+  .bolinha { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .b-Ajustar { background: var(--aj); } .b-Verificar { background: var(--ve); } .b-OK { background: var(--ok); }
+  #itens { overflow-y: auto; padding: 8px 10px 16px; flex: 1; }
+  .cat { font-size: 11px; font-weight: 700; color: var(--suave); text-transform: uppercase; letter-spacing: .04em;
+         margin: 12px 4px 6px; display: flex; justify-content: space-between; }
+  .card { background: #fff; border: 1px solid var(--borda); border-radius: 10px; padding: 9px 11px; margin-bottom: 7px;
+          cursor: pointer; transition: border-color .15s, box-shadow .15s; border-left: 4px solid transparent; }
+  .card:hover { border-color: #C9D3DF; box-shadow: 0 2px 6px rgba(15, 23, 42, .06); }
+  .card.st-Ajustar { border-left-color: var(--aj); } .card.st-Verificar { border-left-color: var(--ve); }
+  .card.st-OK { border-left-color: var(--ok); }
+  .card.sel { border-color: var(--azul); box-shadow: 0 0 0 3px var(--azul-claro); }
+  .card .linha1 { display: flex; gap: 8px; align-items: flex-start; }
+  .num { flex: none; min-width: 22px; height: 20px; border-radius: 6px; font-size: 11px; font-weight: 700;
+         display: inline-flex; align-items: center; justify-content: center; color: #fff; padding: 0 5px; }
+  .num.st-Ajustar { background: var(--aj); } .num.st-Verificar { background: var(--ve); color: #3B2A00; }
+  .num.st-OK { background: var(--ok); }
+  .card .titulo { font-size: 13.5px; font-weight: 600; line-height: 1.3; flex: 1; }
+  .card .det { font-size: 12.5px; color: var(--suave); margin-top: 3px; }
+  .card .trecho { font-size: 12px; color: #374151; margin-top: 4px; font-style: italic; overflow: hidden;
+                  text-overflow: ellipsis; white-space: nowrap; }
+  .pill { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .p-Ajustar { background: var(--aj-bg); color: var(--aj-tx); } .p-Verificar { background: var(--ve-bg); color: var(--ve-tx); }
+  .p-OK { background: var(--ok-bg); color: var(--ok-tx); }
+  .card .mais { display: none; margin-top: 8px; }
+  .card.sel .mais { display: block; }
+  .corrigir { background: #F3F6FA; border-left: 3px solid var(--azul); padding: 6px 9px; border-radius: 6px;
+              font-size: 12.5px; margin-top: 6px; line-height: 1.4; }
+  .ia { background: #F5F3FF; border-left-color: #6D28D9; }
+  .nav { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: var(--suave); }
+  .nav button { border: 1px solid var(--borda); background: #fff; border-radius: 6px; width: 26px; height: 24px;
+                cursor: pointer; font-size: 13px; color: var(--texto); }
+  .nav button:hover { border-color: var(--azul); color: var(--azul); }
+  .ref { font-size: 11px; color: var(--suave); }
+  .pg { font-size: 11px; color: var(--suave); white-space: nowrap; }
+  .mini { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 11.5px; }
+  .mini th, .mini td { border-bottom: 1px solid var(--borda); padding: 3px 4px; text-align: left; }
+  .mini th { color: var(--suave); font-weight: 600; }
+  .vazio { color: var(--suave); font-size: 13px; padding: 20px 8px; text-align: center; }
+
+  /* ---------------- barra de ferramentas */
+  #doc { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: #E9EDF2; }
+  .barra { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: #fff;
+           border-bottom: 1px solid var(--borda); font-size: 12.5px; flex-wrap: wrap; }
+  .barra .grupo { display: flex; align-items: center; gap: 3px; }
+  .barra .sep { width: 1px; height: 20px; background: var(--borda); margin: 0 3px; }
+  .barra button { border: 1px solid var(--borda); background: #fff; border-radius: 6px; padding: 3px 8px;
+                  cursor: pointer; font-size: 12.5px; color: var(--texto); min-width: 28px; height: 27px; }
+  .barra button:hover { border-color: var(--azul); color: var(--azul); }
+  .barra button.ativo { background: var(--azul-claro); border-color: var(--azul); color: var(--azul); font-weight: 600; }
+  .barra button:disabled { opacity: .4; cursor: default; }
+  #npag { width: 46px; text-align: center; padding: 3px 4px; border: 1px solid var(--borda); border-radius: 6px;
+          font-size: 12.5px; height: 27px; background: #fff; color: var(--texto); }
+  #zval { min-width: 42px; text-align: center; color: var(--suave); }
+  #bbusca { width: 170px; height: 27px; padding: 3px 8px; }
+  #nbusca { min-width: 46px; color: var(--suave); text-align: center; }
+  .somente { margin-left: auto; color: var(--suave); font-size: 11.5px; display: flex; gap: 5px; align-items: center;
+             white-space: nowrap; }
+
+  /* ---------------- páginas */
+  #rolagem { overflow: auto; flex: 1; padding: 22px 0 60px; position: relative; }
+  #folhas { margin: 0 auto; width: max-content; padding: 0 34px; }
+  .folha { background: #fff; margin: 0 auto 34px; box-shadow: 0 1px 3px rgba(0,0,0,.14), 0 8px 22px rgba(0,0,0,.07);
+           position: relative; font-family: Arial, "Liberation Sans", sans-serif; font-size: 12pt; color: #111;
+           user-select: text; cursor: default; }
+  .folha::after { content: "Página " attr(data-pag) " de " attr(data-total); position: absolute; left: 0; right: 0;
+                  bottom: -21px; text-align: center; font: 11px "Segoe UI", sans-serif; color: #8A97A8; }
+  .area:empty::before { content: "página em branco"; display: block; text-align: center; margin-top: 40%;
+                        font: italic 12px "Segoe UI", sans-serif; color: #C3CBD6; }
+  .rotulo-sec { position: absolute; top: -17px; left: 0; font: 11px "Segoe UI", sans-serif; color: #94A3B8;
+                display: none; }
+  .mostrar-margens .rotulo-sec { display: block; }
+  .mostrar-margens .area { outline: 1.5px dashed #60A5FA; outline-offset: 0; background: #fff; }
+  .mostrar-margens .folha { box-shadow: inset 0 0 0 9999px rgba(96,165,250,.06), 0 1px 3px rgba(0,0,0,.12); }
+  .par { margin: 0; white-space: pre-wrap; word-wrap: break-word; position: relative; }
+  .tab { display: inline-block; width: 1.25cm; }
+  ins { color: #0F7B3F; text-decoration: underline; text-decoration-color: #34A853; }
+  del { color: #B42318; text-decoration: line-through; }
+  .img-ph { display: inline-block; background: #F1F5F9; color: #64748B; border: 1px dashed #CBD5E1;
+            padding: 18px 8px; text-align: center; font: 11px sans-serif; vertical-align: top; }
+  .tab-wrap { margin: 8px 0 4px; }
+  .tab-selo { display: inline-block; font: 600 10.5px "Segoe UI", sans-serif; padding: 2px 8px; border-radius: 6px;
+              margin-bottom: 4px; letter-spacing: .01em; }
+  .selo-tab { background: #E8F0F8; color: #1F4E79; } .selo-qua { background: #F3E8FF; color: #6B21A8; }
+  .selo-lay { background: #F1F5F9; color: #64748B; } .selo-sem { background: #FDE2E4; color: #9B1C2C; }
+  .tbl { border-collapse: collapse; margin: 0 auto; font-size: 11pt; min-width: 60%; max-width: 100%; }
+  .tbl td { padding: 2px 7px; vertical-align: top; }
+  .tbl .cel { margin: 0 !important; line-height: 1.3 !important; text-indent: 0 !important; }
+  .tbl tr.cab td { font-weight: 700; }
+  .tbl.vert td { border: 1px solid #333; }
+  .tbl.horiz tr:first-child td { border-top: 1px solid #333; border-bottom: 1px solid #333; }
+  .tbl.horiz tr:last-child td { border-bottom: 1px solid #333; }
+  .tbl.lay td { border: 1px dotted #CBD5E1; }
+
+  /* ---------------- marcações (todas visíveis, como comentários do Acrobat) */
+  mark.nota { color: inherit; padding: 0 1px; border-radius: 2px; cursor: pointer; }
+  mark.nota.st-Ajustar { background: var(--marca-aj); box-shadow: inset 0 -2px 0 var(--aj); }
+  mark.nota.st-Verificar { background: var(--marca-ve); box-shadow: inset 0 -2px 0 var(--ve); }
+  .bloco-nota { cursor: pointer; }
+  .bloco-nota::before { content: ""; position: absolute; left: -12px; top: 1px; bottom: 1px; width: 4px;
+                        border-radius: 2px; pointer-events: none; }
+  .bloco-nota.st-Ajustar::before { background: var(--aj); }
+  .bloco-nota.st-Verificar::before { background: var(--ve); }
+  .tab-wrap.bloco-nota { position: relative; }
+  .tab-wrap.bloco-nota .tbl { outline: 2px solid transparent; outline-offset: 2px; }
+  .tab-wrap.bloco-nota.st-Ajustar .tbl { outline-color: rgba(217, 71, 91, .55); }
+  .tab-wrap.bloco-nota.st-Verificar .tbl { outline-color: rgba(224, 168, 0, .6); }
+  .balao { position: absolute; right: 6px; min-width: 22px; height: 20px; padding: 0 5px; border-radius: 10px 10px 10px 3px;
+           font: 700 10.5px "Segoe UI", sans-serif; display: flex; align-items: center; justify-content: center;
+           color: #fff; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.25); z-index: 2; user-select: none;
+           transition: transform .12s; }
+  .balao:hover { transform: scale(1.12); }
+  .balao.st-Ajustar { background: var(--aj); } .balao.st-Verificar { background: var(--ve); color: #3B2A00; }
+  .balao.foco { outline: 3px solid var(--azul); outline-offset: 1px; }
+  .ativo-alvo { animation: pulso 1.6s ease-out 1; }
+  mark.nota.foco { outline: 2px solid var(--azul); outline-offset: 1px; }
+  .bloco-nota.foco { background: rgba(31, 78, 121, .06); }
+  @keyframes pulso { 0% { box-shadow: 0 0 0 0 rgba(31,78,121,.55); } 100% { box-shadow: 0 0 0 14px rgba(31,78,121,0); } }
+  .sem-marcas mark.nota, .sem-Ajustar mark.nota.st-Ajustar, .sem-Verificar mark.nota.st-Verificar
+    { background: none !important; box-shadow: none !important; cursor: inherit; }
+  .sem-marcas .bloco-nota::before, .sem-Ajustar .bloco-nota.st-Ajustar::before,
+  .sem-Verificar .bloco-nota.st-Verificar::before { display: none; }
+  .sem-marcas .balao, .sem-Ajustar .balao.st-Ajustar, .sem-Verificar .balao.st-Verificar { display: none; }
+  .sem-marcas .tab-wrap.bloco-nota .tbl, .sem-Ajustar .tab-wrap.st-Ajustar .tbl, .sem-Verificar .tab-wrap.st-Verificar .tbl
+    { outline-color: transparent !important; }
+  mark.busca { background: #9DD3FF; color: inherit; border-radius: 2px; }
+  mark.busca.atual { background: #2E8BEA; color: #fff; }
+
+  /* ---------------- balão de detalhes */
+  #pop { position: fixed; z-index: 20; width: 320px; background: #fff; border: 1px solid var(--borda);
+         border-radius: 10px; box-shadow: 0 10px 30px rgba(15,23,42,.18); padding: 10px 12px; font-size: 12.5px;
+         display: none; }
+  #pop.vis { display: block; }
+  #pop .t { font-weight: 700; font-size: 13px; margin: 0 0 3px; display: flex; gap: 6px; align-items: flex-start; }
+  #pop .d { color: var(--suave); }
+  #pop .item { padding: 6px 0; border-top: 1px solid var(--borda); cursor: pointer; }
+  #pop .item:first-of-type { border-top: none; padding-top: 0; }
+  #pop .item:hover .t { color: var(--azul); }
+  #aviso { position: fixed; bottom: 16px; right: 22px; background: #111827; color: #fff; padding: 8px 14px;
+           border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 30; }
+  #aviso.vis { opacity: .92; }
+
+  /* ---------------- modo escuro (as páginas continuam brancas, como papel) */
+  body.escuro { --azul: #6AA6DD; --azul-claro: #1C3550; --borda: #2B3747; --texto: #E5E9F0; --suave: #9AA6B5;
+                --aj-bg: #4A1D24; --aj-tx: #F7A8B2; --ve-bg: #3D3110; --ve-tx: #F4D47C; --ok-bg: #173B26; --ok-tx: #8FD8A8; }
+  body.escuro #app { background: #17212C; }
+  body.escuro #lista { background: #131C26; }
+  body.escuro .topo, body.escuro .barra { background: #17212C; }
+  body.escuro .filtro, body.escuro .nav button, body.escuro .barra button, body.escuro .campo, body.escuro #npag,
+  body.escuro .ordem select { background: #1A2430; color: var(--texto); border-color: var(--borda); }
+  body.escuro .card { background: #1A2430; }
+  body.escuro .card:hover { border-color: #3B4A5E; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+  body.escuro .card .trecho { color: #B8C2CF; }
+  body.escuro .corrigir { background: #1E2A38; }
+  body.escuro .ia { background: #251F3A; }
+  body.escuro #doc { background: #0B1219; }
+  body.escuro #pop { background: #1A2430; }
+  body.escuro .rotulo-sec { color: #7C8899; }
+  body.escuro #aviso { background: #E5E9F0; color: #111827; }
+
+  /* ---------------- impressão / salvar como PDF: só as páginas, com as marcações */
+  @media print {
+    @page { size: A4; margin: 0; }
+    html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+    #app { display: block !important; height: auto !important; border: none; overflow: visible !important; }
+    #lista, .barra, #pop, #aviso { display: none !important; }
+    #doc, #rolagem { display: block !important; overflow: visible !important; height: auto !important;
+                     padding: 0 !important; background: #fff !important; }
+    #folhas { zoom: 1 !important; padding: 0; width: auto; }
+    .folha { box-shadow: none; margin: 0; break-after: page; }
+    .folha::after { display: none; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="lista">
+    <div class="topo">
+      <h3>Pontos marcados <span class="total" id="total"></span></h3>
+      <input id="busca" class="campo" placeholder="Filtrar a lista (problema ou trecho)…">
+      <div class="filtros" id="filtros"></div>
+    </div>
+    <div id="itens"></div>
+  </aside>
+  <main id="doc">
+    <div class="barra">
+      <div class="grupo">
+        <button id="blista" class="ativo" title="Mostrar/ocultar a lista de pontos">☰</button>
+      </div>
+      <div class="sep"></div>
+      <div class="grupo" title="Página">
+        <button id="pant" title="Página anterior">‹</button>
+        <input id="npag" value="1" aria-label="Página"><span>&nbsp;de&nbsp;<span id="tpag">1</span></span>
+        <button id="pprox" title="Próxima página">›</button>
+      </div>
+      <div class="sep"></div>
+      <div class="grupo">
+        <button id="zmenos" title="Diminuir">−</button><span id="zval">100%</span>
+        <button id="zmais" title="Aumentar">+</button>
+        <button id="zlarg" title="Ajustar à largura">Largura</button>
+        <button id="zpag" title="Página inteira">Página</button>
+      </div>
+      <div class="sep"></div>
+      <div class="grupo">
+        <input id="bbusca" class="campo" placeholder="Procurar no texto…" title="Procurar no documento (Enter: próximo)">
+        <button id="bant" title="Anterior">‹</button><span id="nbusca"></span><button id="bprox" title="Próximo">›</button>
+      </div>
+      <div class="sep"></div>
+      <div class="grupo">
+        <button id="bmarcas" class="ativo" title="Mostrar/ocultar as marcações">Marcações</button>
+        <button id="bmargens" title="Mostrar a área de texto (margens) de cada página">Margens</button>
+        <button id="bimprimir" title="Imprimir ou salvar como PDF (com as marcações)">🖨</button>
+      </div>
+      <span class="somente">🔒 Somente leitura</span>
+    </div>
+    <div id="rolagem"><div id="folhas"></div></div>
+  </main>
+</div>
+<div id="pop"></div>
+<div id="aviso"></div>
+
+<script>
+// ------------------------------------------------------------ protocolo do Streamlit (componente v1)
+function enviar(tipo, dados) {
+  window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: tipo }, dados || {}), "*");
+}
+
+const ROT = { "Ajustar": "Ajustar", "Verificar": "Conferir", "OK": "OK" };
+const ORDEM = { "Ajustar": 0, "Verificar": 1, "OK": 2 };
+let estado = { achados: [], versao: null, filtros: new Set(["Ajustar", "Verificar"]), sel: null, idx: 0,
+               zoom: null, busca: "", ordem: "categoria", marcas: true, buscaDoc: { termo: "", itens: [], pos: -1 } };
+let ancoras = {};   // id do achado -> [{el, pag}] na ordem dos locais
+let numero = {};    // id do achado -> número da marcação (ordem no texto)
+
+const $ = (s) => document.querySelector(s);
+const $$ = (s, raiz) => [...(raiz || document).querySelectorAll(s)];
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+
+function aviso(txt) {
+  const a = $("#aviso"); a.textContent = txt; a.classList.add("vis");
+  clearTimeout(aviso.t); aviso.t = setTimeout(() => a.classList.remove("vis"), 2600);
+}
+
+// ------------------------------------------------------------ paginação no navegador (arquivos sem a do Word)
+function paginarAuto() {
+  const folhas = $$("#folhas .folha");
+  if (!folhas.length || folhas[0].dataset.paginacao === "word") return;
+  for (const f of folhas) {
+    // folha que passa pouco da altura: é diferença de fonte/espaçamento do navegador (comum em arquivos
+    // convertidos de PDF, que já têm uma quebra por página); só divide o que claramente é mais de uma página
+    const cs0 = getComputedStyle(f);
+    const disp0 = parseFloat(cs0.minHeight) - parseFloat(cs0.paddingTop) - parseFloat(cs0.paddingBottom);
+    const area0 = f.querySelector(".area");
+    if (area0.getBoundingClientRect().height <= disp0 * 1.45) continue;
+    let atual = f;
+    for (let guarda = 0; guarda < 400; guarda++) {
+      const area = atual.querySelector(".area");
+      const cs = getComputedStyle(atual);
+      const disp = parseFloat(cs.minHeight) - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      const topo = area.getBoundingClientRect().top;
+      const filhos = [...area.children];
+      let corte = -1;
+      for (let k = 1; k < filhos.length; k++) {
+        if (filhos[k].getBoundingClientRect().bottom - topo > disp + 2) { corte = k; break; }
+      }
+      if (corte < 0) break;
+      const nova = atual.cloneNode(false);
+      const rot = atual.querySelector(".rotulo-sec");
+      nova.innerHTML = (rot ? rot.outerHTML : "") + "<div class='area'></div>";
+      const area2 = nova.querySelector(".area");
+      filhos.slice(corte).forEach(x => area2.appendChild(x));
+      atual.after(nova);
+      atual = nova;
+    }
+  }
+}
+
+function numerarPaginas() {
+  const folhas = $$("#folhas .folha");
+  folhas.forEach((f, k) => { f.dataset.pag = k + 1; f.dataset.total = folhas.length; });
+  $("#tpag").textContent = folhas.length;
+}
+
+// ------------------------------------------------------------ marcações
+function marcarTexto(el, alvo) {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+    acceptNode: n => n.parentElement.closest("del") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  const nos = []; let total = "";
+  while (walker.nextNode()) { nos.push([walker.currentNode, total.length]); total += walker.currentNode.nodeValue; }
+  const pos = total.indexOf(alvo);
+  if (pos < 0 || !alvo) return null;
+  const fim = pos + alvo.length;
+  const achar = (p) => { for (let k = nos.length - 1; k >= 0; k--) if (nos[k][1] <= p) return nos[k]; return nos[0]; };
+  const [n1, o1] = achar(pos), [n2, o2] = achar(fim - 1);
+  const r = document.createRange();
+  r.setStart(n1, pos - o1); r.setEnd(n2, fim - o2);
+  const m = document.createElement("mark");
+  m.appendChild(r.extractContents()); r.insertNode(m);
+  return m;
+}
+
+function blocosDo(b) { return $$(`#folhas > .folha .area > [data-b="${b}"], #folhas .tab-wrap > table[data-b="${b}"]`); }
+
+function aplicarMarcas() {
+  ancoras = {}; numero = {};
+  const ordemBloco = {};
+  $$("#folhas [data-b]").forEach((el, k) => { if (!(el.dataset.b in ordemBloco)) ordemBloco[el.dataset.b] = k; });
+  const comLocal = estado.achados.filter(a => a.status !== "OK" && a.locais.length);
+  const pos = (a) => Math.min(...a.locais.map(l => ordemBloco[String(l.b)] ?? 1e9));
+  comLocal.sort((x, y) => pos(x) - pos(y) || ORDEM[x.status] - ORDEM[y.status]);
+  comLocal.forEach((a, k) => numero[a.id] = k + 1);
+  const marcados = {};  // "bloco|trecho" -> mark (o mesmo trecho apontado por vários itens: uma marcação só)
+  for (const a of comLocal) {
+    ancoras[a.id] = [];
+    for (const loc of a.locais) {
+      let els = blocosDo(loc.b);
+      if (!els.length) continue;
+      els = els.map(el => el.tagName === "TABLE" ? el.closest(".tab-wrap") : el);
+      let alvo = null;
+      if (loc.m && els[0].tagName === "P") {
+        const chave = loc.b + "|" + loc.m;
+        alvo = marcados[chave] || null;
+        for (const el of els) { if (alvo) break; alvo = marcarTexto(el, loc.m); }
+        if (alvo) {
+          marcados[chave] = alvo;
+          alvo.classList.add("nota");
+          if (!alvo.classList.contains("st-Ajustar")) {   // vermelho vence amarelo
+            alvo.classList.remove("st-Verificar"); alvo.classList.add("st-" + a.status);
+          }
+        }
+      }
+      if (!alvo) {
+        alvo = els[0];
+        alvo.classList.add("bloco-nota");
+        if (!alvo.classList.contains("st-Ajustar")) { alvo.classList.remove("st-Verificar"); alvo.classList.add("st-" + a.status); }
+      }
+      const ids = new Set((alvo.dataset.ids || "").split(",").filter(Boolean));
+      ids.add(String(a.id)); alvo.dataset.ids = [...ids].join(",");
+      alvo.title = [...ids].map(i => { const x = porId(+i); return `${numero[x.id]}. ${x.item}: ${x.detalhe}`; }).join("\n");
+      ancoras[a.id].push(alvo);
+    }
+  }
+}
+
+function desenharBaloes() {
+  $$(".balao").forEach(b => b.remove());
+  const grupos = new Map();  // folha -> [{top, ids, status}]
+  for (const [id, lista] of Object.entries(ancoras)) {
+    const a = porId(+id);
+    const vistos = new Set();
+    for (const el of lista) {
+      if (vistos.has(el)) continue;
+      vistos.add(el);
+      const folha = el.closest(".folha");
+      if (!folha) continue;
+      const z = parseFloat($("#folhas").style.zoom) || 1;
+      const top = (el.getBoundingClientRect().top - folha.getBoundingClientRect().top) / z;
+      if (!grupos.has(folha)) grupos.set(folha, []);
+      const g = grupos.get(folha);
+      let alvo = g.find(x => Math.abs(x.top - top) < 16);
+      if (!alvo) { alvo = { top, ids: [], ajustar: false }; g.push(alvo); }
+      if (!alvo.ids.includes(a.id)) alvo.ids.push(a.id);
+      if (a.status === "Ajustar") alvo.ajustar = true;
+    }
+  }
+  for (const [folha, g] of grupos) {
+    g.sort((x, y) => x.top - y.top);
+    let ultimo = -99;
+    for (const x of g) {
+      const top = Math.max(x.top, ultimo + 23);
+      ultimo = top;
+      const b = document.createElement("div");
+      const st = x.ajustar ? "Ajustar" : "Verificar";
+      b.className = "balao st-" + st;
+      b.dataset.ids = x.ids.join(",");
+      b.style.top = top + "px";
+      const nums = x.ids.map(i => numero[i]).sort((p, q) => p - q);
+      b.textContent = nums.length > 2 ? `${nums[0]} +${nums.length - 1}` : nums.join(" · ");
+      folha.appendChild(b);
+    }
+  }
+}
+
+function porId(id) { return estado.achados.find(x => x.id === id); }
+function paginaDe(el) { const f = el && el.closest(".folha"); return f ? +f.dataset.pag : null; }
+
+// ------------------------------------------------------------ lista
+function desenharFiltros() {
+  const n = { Ajustar: 0, Verificar: 0, OK: 0 };
+  estado.achados.forEach(a => n[a.status] = (n[a.status] || 0) + 1);
+  $("#total").textContent = `${Object.keys(numero).length} no texto`;
+  $("#filtros").innerHTML = ["Ajustar", "Verificar", "OK"].map(s =>
+    `<span class="filtro ${estado.filtros.has(s) ? "ativo" : ""}" data-s="${s}">
+       <span class="bolinha b-${s}"></span>${ROT[s]} <b>${n[s] || 0}</b></span>`).join("") +
+    `<span class="ordem">Ordem <select id="sordem"><option value="categoria">por tema</option>
+       <option value="texto" ${estado.ordem === "texto" ? "selected" : ""}>pelo texto</option></select></span>`;
+  $$(".filtro").forEach(el => el.onclick = () => {
+    const s = el.dataset.s;
+    estado.filtros.has(s) ? estado.filtros.delete(s) : estado.filtros.add(s);
+    aplicarFiltrosNoDoc(); desenharFiltros(); desenharLista();
+  });
+  $("#sordem").onchange = (ev) => { estado.ordem = ev.target.value; desenharLista(); };
+}
+
+function aplicarFiltrosNoDoc() {
+  document.body.classList.toggle("sem-Ajustar", !estado.filtros.has("Ajustar"));
+  document.body.classList.toggle("sem-Verificar", !estado.filtros.has("Verificar"));
+}
+
+function cartao(a) {
+  const els = ancoras[a.id] || [];
+  const nloc = els.length;
+  const pag = nloc ? paginaDe(els[estado.sel === a.id ? estado.idx : 0]) : null;
+  const ref = a.secao && a.secao !== "—" ? `<span class="ref" style="margin-left:auto">Diretrizes §${esc(a.secao)}</span>` : "";
+  const nav = nloc ? `<div class="nav">📍 <span class="pos">${estado.sel === a.id ? estado.idx + 1 : 1}</span> de ${nloc}
+      ${nloc > 1 ? `<button data-dir="-1" title="Anterior">‹</button><button data-dir="1" title="Próxima">›</button>` : ""}
+      ${ref}</div>`
+    : `<div class="nav">${a.documento_todo ? "📄 Vale para o documento todo" : "Sem trecho específico no texto"}${ref}</div>`;
+  let tabela = "";
+  if (a.tabela && a.tabela.length) {
+    const cols = Object.keys(a.tabela[0]);
+    tabela = `<table class="mini"><tr>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr>${
+      a.tabela.map(l => `<tr>${cols.map(c => `<td>${esc(l[c])}</td>`).join("")}</tr>`).join("")}</table>`;
+  }
+  const corr = a.corrigir ? `<div class="corrigir ${a.origem === "ia" ? "ia" : ""}"><b>${a.origem === "ia" ?
+      "Sugestão da IA (conferir):" : "Como corrigir:"}</b> ${a.origem === "ia" ? md(a.corrigir) : esc(a.corrigir)}</div>` : "";
+  const titulo = a.origem === "ia" ? (a.trechos[0] || a.item) : a.item;
+  const num = numero[a.id] ? `<span class="num st-${a.status}">${numero[a.id]}</span>` : "";
+  return `<div class="card st-${a.status} ${estado.sel === a.id ? "sel" : ""}" data-id="${a.id}">
+    <div class="linha1">${num}<span class="titulo">${esc(titulo)}</span>
+      ${pag ? `<span class="pg">p. ${pag}</span>` : ""}<span class="pill p-${a.status}">${ROT[a.status]}</span></div>
+    <div class="det">${esc(a.detalhe)}</div>
+    ${a.origem !== "ia" && a.trechos.length ? `<div class="trecho" title="${esc(a.trechos.join("\n"))}">“${esc(a.trechos[0])}”${
+      a.trechos.length > 1 ? ` <span style="font-style:normal;color:var(--suave)">+${a.trechos.length - 1}</span>` : ""}</div>` : ""}
+    <div class="mais">${corr}${tabela}${nav}</div></div>`;
+}
+
+function desenharLista() {
+  const q = estado.busca.toLowerCase();
+  const vis = estado.achados.filter(a => estado.filtros.has(a.status) &&
+      (!q || (a.item + " " + a.detalhe + " " + a.trechos.join(" ")).toLowerCase().includes(q)));
+  if (!vis.length) {
+    $("#itens").innerHTML = `<div class="vazio">${estado.achados.length ? "Nada com esses filtros." : "Nenhum ponto encontrado."}</div>`;
+    return;
+  }
+  if (estado.ordem === "texto") {
+    const com = vis.filter(a => numero[a.id]).sort((x, y) => numero[x.id] - numero[y.id]);
+    const sem = vis.filter(a => !numero[a.id]).sort((x, y) => ORDEM[x.status] - ORDEM[y.status]);
+    $("#itens").innerHTML = (com.length ? `<div class="cat"><span>No texto</span><span>${com.length}</span></div>` +
+      com.map(cartao).join("") : "") + (sem.length ? `<div class="cat"><span>Gerais</span><span>${sem.length}</span></div>` +
+      sem.map(cartao).join("") : "");
+  } else {
+    const cats = [...new Set(vis.map(a => a.categoria))];
+    $("#itens").innerHTML = cats.map(c => {
+      const itens = vis.filter(a => a.categoria === c).sort((x, y) => ORDEM[x.status] - ORDEM[y.status]);
+      return `<div class="cat"><span>${esc(c)}</span><span>${itens.length}</span></div>${itens.map(cartao).join("")}`;
+    }).join("");
+  }
+  $$(".card").forEach(el => {
+    el.onclick = (ev) => {
+      const id = +el.dataset.id;
+      const btn = ev.target.closest("button[data-dir]");
+      if (btn) { ev.stopPropagation(); mover(id, +btn.dataset.dir); return; }
+      if (estado.sel === id && !ev.target.closest(".titulo,.det,.linha1")) return;
+      selecionar(id, 0, true);
+    };
+  });
+}
+
+function selecionar(id, idx, rolar) {
+  estado.sel = id; estado.idx = idx || 0;
+  fecharPop();
+  if (!estado.filtros.has(porId(id).status)) { estado.filtros.add(porId(id).status); aplicarFiltrosNoDoc(); desenharFiltros(); }
+  desenharLista();
+  const card = $(`.card[data-id="${id}"]`);
+  if (card) card.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  irPara(id, estado.idx, rolar);
+}
+
+function mover(id, dir) {
+  const els = ancoras[id] || [];
+  if (!els.length) return;
+  estado.sel = id;
+  estado.idx = (estado.idx + dir + els.length) % els.length;
+  const card = $(`.card[data-id="${id}"]`);
+  if (card) {
+    card.querySelector(".pos").textContent = estado.idx + 1;
+    const pg = card.querySelector(".pg"); if (pg) pg.textContent = "p. " + paginaDe(els[estado.idx]);
+  }
+  irPara(id, estado.idx, true);
+}
+
+function irPara(id, idx, rolar) {
+  $$(".foco").forEach(el => el.classList.remove("foco"));
+  $$(".ativo-alvo").forEach(el => el.classList.remove("ativo-alvo"));
+  const a = porId(id);
+  const els = ancoras[id] || [];
+  $("#folhas").classList.toggle("mostrar-margens", !!(a && a.documento_todo && !els.length) || $("#bmargens").classList.contains("ativo"));
+  if (!els.length) {
+    if (rolar) $("#rolagem").scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+  els.forEach(el => el.classList.add("foco"));
+  $$(".balao").forEach(b => { if (b.dataset.ids.split(",").includes(String(id))) b.classList.add("foco"); });
+  const alvo = els[idx] || els[0];
+  void alvo.offsetWidth; alvo.classList.add("ativo-alvo");
+  if (rolar) alvo.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+// ------------------------------------------------------------ balão de detalhes (clique numa marcação)
+function abrirPop(ids, x, y) {
+  const itens = ids.map(i => porId(+i)).filter(Boolean).sort((p, q) => (numero[p.id] || 0) - (numero[q.id] || 0));
+  if (itens.length === 1) { selecionar(itens[0].id, Math.max(0, (ancoras[itens[0].id] || []).indexOf(popEstado.alvo)), false); }
+  const pop = $("#pop");
+  pop.innerHTML = itens.map(a => `<div class="item" data-id="${a.id}"><div class="t"><span class="num st-${a.status}">${
+      numero[a.id] || "•"}</span>${esc(a.origem === "ia" ? (a.trechos[0] || a.item) : a.item)}</div>
+      <div class="d">${esc(a.detalhe)}</div>${a.corrigir ? `<div class="corrigir ${a.origem === "ia" ? "ia" : ""}">${
+      a.origem === "ia" ? md(a.corrigir) : esc(a.corrigir)}</div>` : ""}</div>`).join("");
+  pop.classList.add("vis");
+  const w = 320, h = pop.offsetHeight;
+  pop.style.left = Math.min(window.innerWidth - w - 10, Math.max(10, x - w / 2)) + "px";
+  pop.style.top = (y + 14 + h > window.innerHeight ? Math.max(10, y - h - 10) : y + 14) + "px";
+  $$("#pop .item").forEach(el => el.onclick = () => selecionar(+el.dataset.id, 0, false));
+}
+const popEstado = { alvo: null };
+function fecharPop() { $("#pop").classList.remove("vis"); }
+
+$("#folhas").addEventListener("click", (ev) => {
+  const b = ev.target.closest(".balao");
+  const m = b || ev.target.closest("mark.nota, .bloco-nota");
+  if (!m || document.body.classList.contains("sem-marcas")) { fecharPop(); return; }
+  if (window.getSelection && String(window.getSelection())) return;  // estava selecionando texto
+  ev.stopPropagation();
+  popEstado.alvo = b ? null : m;
+  abrirPop(m.dataset.ids.split(","), ev.clientX, ev.clientY);
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") fecharPop();
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "f") { ev.preventDefault(); $("#bbusca").focus(); $("#bbusca").select(); }
+});
+$("#rolagem").addEventListener("scroll", () => { fecharPop(); atualizarPagina(); }, { passive: true });
+
+// ------------------------------------------------------------ páginas e zoom
+function atualizarPagina() {
+  const rol = $("#rolagem").getBoundingClientRect();
+  const meio = rol.top + rol.height * 0.35;
+  let atual = 1;
+  for (const f of $$("#folhas .folha")) {
+    const r = f.getBoundingClientRect();
+    if (r.top <= meio) atual = +f.dataset.pag; else break;
+  }
+  if (document.activeElement !== $("#npag")) $("#npag").value = atual;
+  $("#pant").disabled = atual <= 1;
+  $("#pprox").disabled = atual >= $$("#folhas .folha").length;
+}
+function irPagina(n) {
+  const folhas = $$("#folhas .folha");
+  const f = folhas[Math.max(1, Math.min(folhas.length, n)) - 1];
+  const rol = $("#rolagem");
+  if (f) rol.scrollTo({ top: rol.scrollTop + f.getBoundingClientRect().top - rol.getBoundingClientRect().top - 12 });
+}
+$("#pant").onclick = () => irPagina(+$("#npag").value - 1);
+$("#pprox").onclick = () => irPagina(+$("#npag").value + 1);
+$("#npag").onkeydown = (ev) => { if (ev.key === "Enter") { irPagina(parseInt(ev.target.value) || 1); ev.target.blur(); } };
+
+const LARGURA_FOLHA = 21 * 37.795 + 68;
+const ALTURA_FOLHA = 29.7 * 37.795 + 40;
+function aplicarZoom(manter) {
+  const rol = $("#rolagem");
+  const rel = rol.scrollHeight ? rol.scrollTop / rol.scrollHeight : 0;
+  $("#folhas").style.zoom = estado.zoom;
+  $("#zval").textContent = Math.round(estado.zoom * 100) + "%";
+  if (manter) rol.scrollTop = rel * rol.scrollHeight;
+  atualizarPagina();
+}
+function zoomLargura() {
+  const w = $("#rolagem").clientWidth - 30;
+  estado.zoom = Math.max(0.35, Math.min(1.0, w / LARGURA_FOLHA)); aplicarZoom(true);
+}
+function zoomPagina() {
+  const h = $("#rolagem").clientHeight - 40;
+  estado.zoom = Math.max(0.3, Math.min(1.3, h / ALTURA_FOLHA)); aplicarZoom(true);
+}
+$("#zmenos").onclick = () => { estado.zoom = Math.max(0.3, Math.round(((estado.zoom || 1) - 0.1) * 10) / 10); aplicarZoom(true); };
+$("#zmais").onclick = () => { estado.zoom = Math.min(2.5, Math.round(((estado.zoom || 1) + 0.1) * 10) / 10); aplicarZoom(true); };
+$("#zlarg").onclick = zoomLargura;
+$("#zpag").onclick = zoomPagina;
+$("#bmargens").onclick = () => {
+  const on = !$("#bmargens").classList.contains("ativo");
+  $("#bmargens").classList.toggle("ativo", on); $("#folhas").classList.toggle("mostrar-margens", on);
+};
+$("#bmarcas").onclick = () => {
+  estado.marcas = !estado.marcas;
+  $("#bmarcas").classList.toggle("ativo", estado.marcas);
+  document.body.classList.toggle("sem-marcas", !estado.marcas);
+  fecharPop();
+};
+$("#blista").onclick = () => {
+  const aberta = $("#app").classList.toggle("lista-fechada");
+  $("#blista").classList.toggle("ativo", !aberta);
+};
+$("#bimprimir").onclick = () => {
+  const z = estado.zoom; $("#folhas").style.zoom = 1;
+  setTimeout(() => { window.print(); $("#folhas").style.zoom = z; }, 50);
+};
+$("#busca").oninput = (ev) => { estado.busca = ev.target.value; desenharLista(); };
+
+// ------------------------------------------------------------ procurar no texto (como Ctrl+F)
+function limparBusca() {
+  $$("mark.busca").forEach(m => { const pai = m.parentNode; while (m.firstChild) pai.insertBefore(m.firstChild, m); pai.removeChild(m); pai.normalize(); });
+  estado.buscaDoc = { termo: "", itens: [], pos: -1 };
+  $("#nbusca").textContent = "";
+}
+function buscarNoDoc(termo) {
+  limparBusca();
+  termo = termo.trim();
+  if (termo.length < 2) return;
+  const alvo = termo.toLowerCase();
+  const itens = [];
+  for (const el of $$("#folhas .par")) {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const nos = []; let total = "";
+    while (walker.nextNode()) { nos.push([walker.currentNode, total.length]); total += walker.currentNode.nodeValue; }
+    const baixo = total.toLowerCase();
+    const posicoes = [];
+    for (let p = baixo.indexOf(alvo); p >= 0 && posicoes.length < 50; p = baixo.indexOf(alvo, p + alvo.length)) posicoes.push(p);
+    for (const p of posicoes.reverse()) {  // de trás para frente: as posições anteriores continuam válidas
+      const achar = (x) => { for (let k = nos.length - 1; k >= 0; k--) if (nos[k][1] <= x) return nos[k]; return nos[0]; };
+      const [n1, o1] = achar(p), [n2, o2] = achar(p + alvo.length - 1);
+      try {
+        const r = document.createRange(); r.setStart(n1, p - o1); r.setEnd(n2, p + alvo.length - o2);
+        const m = document.createElement("mark"); m.className = "busca";
+        m.appendChild(r.extractContents()); r.insertNode(m); itens.push(m);
+      } catch (e) { /* trecho atravessa estruturas: ignora */ }
+    }
+    if (itens.length > 2000) break;
+  }
+  itens.sort((a, b) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
+  estado.buscaDoc = { termo, itens, pos: -1 };
+  if (!itens.length) { $("#nbusca").textContent = "0"; return; }
+  passoBusca(1);
+}
+function passoBusca(dir) {
+  const b = estado.buscaDoc;
+  if (!b.itens.length) return;
+  if (b.pos >= 0) b.itens[b.pos].classList.remove("atual");
+  b.pos = (b.pos + dir + b.itens.length) % b.itens.length;
+  const m = b.itens[b.pos]; m.classList.add("atual");
+  m.scrollIntoView({ block: "center" });
+  $("#nbusca").textContent = `${b.pos + 1}/${b.itens.length}`;
+}
+$("#bbusca").onkeydown = (ev) => {
+  if (ev.key !== "Enter") return;
+  const t = ev.target.value;
+  if (t.trim() && t.trim() === estado.buscaDoc.termo) passoBusca(ev.shiftKey ? -1 : 1); else buscarNoDoc(t);
+};
+$("#bbusca").oninput = (ev) => { if (!ev.target.value.trim()) limparBusca(); };
+$("#bprox").onclick = () => { const t = $("#bbusca").value; t.trim() === estado.buscaDoc.termo ? passoBusca(1) : buscarNoDoc(t); };
+$("#bant").onclick = () => passoBusca(-1);
+
+// ------------------------------------------------------------ render
+function montar(args) {
+  const rol = $("#rolagem"), topo = rol.scrollTop, primeira = estado.versao === null;
+  limparBusca();
+  $("#folhas").style.zoom = 1;  // mede as páginas em tamanho real
+  $("#folhas").innerHTML = args.html || "";
+  estado.versao = args.versao;
+  paginarAuto();
+  numerarPaginas();
+  aplicarMarcas();
+  desenharBaloes();
+  if (primeira || estado.zoom === null) zoomLargura(); else { aplicarZoom(false); rol.scrollTop = topo; }
+  if (estado.sel !== null && !porId(estado.sel)) estado.sel = null;
+}
+
+function render(args, tema) {
+  const escuro = args.escuro !== undefined ? !!args.escuro : !!(tema && tema.base === "dark");
+  document.body.classList.toggle("escuro", escuro);
+  document.body.style.height = args.altura + "px";
+  enviar("streamlit:setFrameHeight", { height: args.altura });
+  const mudou = args.versao !== estado.versao;
+  estado.achados = args.achados || [];
+  if (mudou) montar(args);
+  if (args.mensagem && args.mensagem !== render.ultimaMsg) aviso(args.mensagem);
+  render.ultimaMsg = args.mensagem;
+  aplicarFiltrosNoDoc(); desenharFiltros(); desenharLista(); atualizarPagina();
+}
+
+window.addEventListener("message", (ev) => {
+  if (ev.data && ev.data.type === "streamlit:render") render(ev.data.args, ev.data.theme);
+});
+enviar("streamlit:componentReady", { apiVersion: 1 });
+</script>
+</body>
+</html>
